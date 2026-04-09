@@ -105,7 +105,7 @@
                         <span class="detail-value" id="oracleKelly">5.0%</span>
                     </div>
                     <div class="oracle-detail">
-                        <span class="detail-label">Confidence</span>
+                        <span class="detail-label">Edge</span>
                         <span class="detail-value" id="oracleConf">—</span>
                     </div>
                     <div class="oracle-detail">
@@ -212,7 +212,7 @@
                         <button class="conf-star" data-level="4" onclick="setConfidence(4)">★</button>
                         <button class="conf-star" data-level="5" onclick="setConfidence(5)">★</button>
                     </div>
-                    <div class="conf-label" id="confLabel">Chọn mức tự tin (1-5)</div>
+                    <div class="conf-label" id="confLabel">Tùy chọn — Để trống sẽ dùng mặc định</div>
                 </div>
 
                 <!-- Risk Warning -->
@@ -363,9 +363,12 @@
             </div>
             <div class="chat-quick-actions" id="chatQuickActions">
                 <button class="chat-quick-btn" onclick="askBot('status')">📊 Tình trạng</button>
-                <button class="chat-quick-btn" onclick="askBot('next')">🎯 Bước tiếp theo</button>
+                <button class="chat-quick-btn" onclick="askBot('next')">🎯 Bước tiếp</button>
                 <button class="chat-quick-btn" onclick="askBot('risk')">⚠️ Rủi ro</button>
                 <button class="chat-quick-btn" onclick="askBot('strategy')">🧠 Chiến thuật</button>
+                <button class="chat-quick-btn" onclick="askBot('Phân tích momentum')">📈 Momentum</button>
+                <button class="chat-quick-btn" onclick="askBot('Tâm lý tilt')">🧘 Tâm lý</button>
+                <button class="chat-quick-btn" onclick="askBot('Cho tôi động lực')">💪 Động lực</button>
             </div>
             <div class="chat-input-container">
                 <input type="text" id="chatInput" placeholder="Hỏi về chiến thuật cược..." autocomplete="off"

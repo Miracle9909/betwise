@@ -131,7 +131,7 @@
 
         if (!amountRaw || amountRaw <= 0) { showToast('Vui lòng nhập số tiền', 'error'); return; }
         if (!oddsRaw || oddsRaw <= 0) { showToast('Vui lòng nhập tỉ lệ cược', 'error'); return; }
-        if (state.confidence < 1) { showToast('Vui lòng chọn mức tự tin', 'error'); return; }
+        // Confidence is OPTIONAL — defaults to full sizing if not set
         if (amountRaw > state.bankroll) { showToast('Số tiền vượt quá vốn hiện có', 'error'); return; }
 
         // Check risk
@@ -141,7 +141,7 @@
             target: state.target,
             history: state.history,
             odds: oddsRaw,
-            confidence: state.confidence,
+            confidence: state.confidence || 0,
             dailyPL: state.dailyPL,
             sessionLosses: state.sessionLosses,
             estimatedWR: state.estimatedWR,
@@ -157,7 +157,7 @@
         state.activeBet = {
             amount: amountRaw,
             odds: oddsRaw,
-            confidence: state.confidence,
+            confidence: state.confidence || 0,
         };
         saveState();
 
@@ -268,13 +268,26 @@
         });
         document.getElementById('oracleAmount').textContent = rec.amount > 0 ? fmtFull(rec.amount) : 'DỪNG';
         document.getElementById('oracleKelly').textContent = (rec.kellyPct * 100).toFixed(1) + '%';
-        document.getElementById('oracleConf').textContent = rec.blocked ? '🛑' : '⭐⭐⭐⭐';
+        // Show edge strength instead of static stars
+        const edgeLabel = rec.edge ? rec.edge.label : '—';
+        document.getElementById('oracleConf').textContent = rec.blocked ? '🛑' : `Edge: ${edgeLabel}`;
 
         const riskEl = document.getElementById('oracleRisk');
         const riskMap = { LOW: ['Thấp', 'risk-low'], MEDIUM: ['Trung bình', 'risk-medium'], HIGH: ['Cao', 'risk-high'], BLOCKED: ['DỪNG', 'risk-high'] };
         const [riskText, riskClass] = riskMap[rec.risk.level] || ['—', ''];
         riskEl.textContent = riskText;
         riskEl.className = `detail-value ${riskClass}`;
+
+        // Motivation message
+        const motivation = BetEngine.getMotivation(state.history, state.bankroll, state.initialBankroll);
+        let motivEl = document.getElementById('motivationMsg');
+        if (!motivEl) {
+            motivEl = document.createElement('div');
+            motivEl.id = 'motivationMsg';
+            motivEl.style.cssText = 'text-align:center;font-size:0.78rem;color:var(--secondary);margin-top:12px;padding:10px 16px;background:rgba(196,204,255,0.05);border-radius:10px;line-height:1.5;';
+            document.querySelector('.oracle-card').appendChild(motivEl);
+        }
+        motivEl.textContent = motivation;
 
         // Streak dots
         const dotsContainer = document.getElementById('streakDots');

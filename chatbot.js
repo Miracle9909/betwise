@@ -1,5 +1,6 @@
 /**
- * BetWise Chatbot — Rule-based Advisor
+ * BetWise Chatbot v2.0 — Advanced Advisor + Motivational Coach
+ * Leverages Engine v2 (Bayesian WR, Momentum, Edge, Tilt, Session Analysis)
  * Context-aware betting advice. Refuses off-topic questions.
  */
 (function () {
@@ -35,16 +36,10 @@
         const input = document.getElementById('chatInput');
         const text = input.value.trim();
         if (!text) return;
-
         addUserMessage(text);
         input.value = '';
         showTyping();
-
-        setTimeout(() => {
-            removeTyping();
-            const response = processQuery(text);
-            addBotMessage(response);
-        }, 600 + Math.random() * 800);
+        setTimeout(() => { removeTyping(); addBotMessage(processQuery(text)); }, 500 + Math.random() * 700);
     };
 
     // ===== QUICK ACTIONS =====
@@ -55,470 +50,458 @@
             risk: 'Mức độ rủi ro hiện tại là gì?',
             strategy: 'Chiến thuật phù hợp cho tôi lúc này?',
         };
-        const text = queries[topic] || topic;
-        addUserMessage(text);
+        addUserMessage(queries[topic] || topic);
         showTyping();
-
-        setTimeout(() => {
-            removeTyping();
-            const response = processQuery(text);
-            addBotMessage(response);
-        }, 600 + Math.random() * 600);
+        setTimeout(() => { removeTyping(); addBotMessage(processQuery(queries[topic] || topic)); }, 500 + Math.random() * 500);
     };
 
-    // ===== GET APP STATE =====
-    function getAppState() {
+    // ===== GET STATE =====
+    function getState() {
         if (window.BetWiseApp) return window.BetWiseApp.getState();
-
-        // Fallback: read directly from localStorage
-        try {
-            const raw = localStorage.getItem('betwise_data');
-            if (raw) return JSON.parse(raw);
-        } catch (e) { /* ignore */ }
-
-        // Default fresh state
-        return {
-            initialBankroll: 10_000_000,
-            bankroll: 10_000_000,
-            target: 500_000_000,
-            estimatedWR: 70,
-            maxDailyLossPct: 20,
-            history: [],
-            dailyPL: 0,
-            sessionLosses: 0,
-        };
+        try { const r = localStorage.getItem('betwise_data'); if (r) return JSON.parse(r); } catch (e) { }
+        return { initialBankroll: 10_000_000, bankroll: 10_000_000, target: 500_000_000, estimatedWR: 70, maxDailyLossPct: 20, history: [], dailyPL: 0, sessionLosses: 0 };
     }
 
-    function fmt(n) {
-        return window.BetWiseApp ? window.BetWiseApp.fmt(n) : '₫' + n.toLocaleString();
-    }
-
-    function fmtFull(n) {
-        return window.BetWiseApp ? window.BetWiseApp.fmtFull(n) : '₫' + Math.abs(n).toLocaleString();
-    }
+    function fmt(n) { return window.BetWiseApp ? window.BetWiseApp.fmt(n) : '₫' + n.toLocaleString(); }
+    function fmtFull(n) { return window.BetWiseApp ? window.BetWiseApp.fmtFull(n) : '₫' + Math.abs(n).toLocaleString(); }
 
     // ===== GREETING =====
     function getGreeting() {
-        const s = getAppState();
-        if (!s) return 'Xin chào! Tôi là <span class="msg-highlight">BetWise Advisor</span>. Hỏi tôi bất kỳ điều gì về chiến thuật cá cược!';
-
+        const s = getState();
         if (s.history.length === 0) {
-            return `Chào bạn! 👋 Tôi là <span class="msg-highlight">BetWise Advisor</span>.<br><br>Vốn khởi đầu: <span class="msg-highlight">${fmtFull(s.bankroll)}</span><br>Mục tiêu: <span class="msg-highlight">${fmtFull(s.target)}</span><br><br>Bạn chưa có lệnh nào. Hãy bắt đầu bằng cách vào tab <strong>"Lệnh mới"</strong> và đặt lệnh thử nghiệm đầu tiên nhé!<br><br>💡 <em>Gợi ý: Ở giai đoạn đầu, hãy cược 3-5% vốn để xác nhận edge trước khi tăng tốc.</em>`;
+            return `Chào bạn! 👋 Tôi là <span class="msg-highlight">BetWise Advisor v2</span> — trợ lý phân tích xác suất cá nhân.<br><br>` +
+                `💰 Vốn: <span class="msg-highlight">${fmtFull(s.bankroll)}</span><br>` +
+                `🎯 Mục tiêu: ${fmtFull(s.target)}<br><br>` +
+                `🚀 Bạn chưa có lệnh nào. Bắt đầu với 3-5% vốn để hệ thống calibrate Bayesian WR.<br><br>` +
+                `💡 <em>Hỏi tôi bất cứ lúc nào — tôi phân tích realtime dựa trên dữ liệu của bạn.</em>`;
         }
 
         const stats = BetEngine.calcStats(s.history, s.initialBankroll, s.bankroll);
         const stage = BetEngine.getStage(s.bankroll);
-        return `Chào bạn! 👋 Đây là tình hình hiện tại:<br><br>📊 Vốn: <span class="msg-highlight">${fmtFull(s.bankroll)}</span> (${stats.profitPct >= 0 ? '+' : ''}${stats.profitPct.toFixed(1)}%)<br>🎯 ${stage.name} — ${stage.label}<br>📈 WR: ${stats.wr.toFixed(1)}% | ${stats.total} lệnh<br><br>Hỏi tôi bất kỳ điều gì về chiến thuật nhé!`;
+        const edge = BetEngine.edgeStrength(s.history, 0.90, s.estimatedWR);
+        const motivation = BetEngine.getMotivation(s.history, s.bankroll, s.initialBankroll);
+
+        return `Chào lại! 👋<br><br>` +
+            `💰 Vốn: <span class="msg-highlight">${fmtFull(s.bankroll)}</span> (${stats.profitPct >= 0 ? '+' : ''}${stats.profitPct.toFixed(1)}%)<br>` +
+            `🎯 ${stage.name} — ${stage.label}<br>` +
+            `📈 WR: <span class="msg-highlight">${stats.wr.toFixed(1)}%</span> | Edge: ${edge.label}<br>` +
+            `📊 Momentum: ${edge.momentum > 20 ? '📈 Tốt' : edge.momentum < -20 ? '📉 Yếu' : '➡️ Trung tính'}<br><br>` +
+            `${motivation}`;
     }
 
     // ===== PROCESS QUERY =====
     function processQuery(text) {
         const q = text.toLowerCase();
-
-        // Off-topic filter
         if (isOffTopic(q)) {
-            return '🚫 Xin lỗi, tôi chỉ có thể tư vấn về <span class="msg-highlight">chiến thuật cá cược</span>, quản lý vốn, và phân tích rủi ro. Vui lòng hỏi về các chủ đề liên quan nhé!';
+            return '🚫 Tôi chỉ tư vấn về <span class="msg-highlight">chiến thuật cá cược, xác suất, và quản lý vốn</span>. Hỏi tôi về: tình trạng, rủi ro, chiến thuật, chuỗi, hoặc mục tiêu nhé!';
         }
 
-        const s = getAppState();
-        if (!s) return 'Không thể đọc dữ liệu. Vui lòng tải lại trang.';
-
+        const s = getState();
         const stats = BetEngine.calcStats(s.history, s.initialBankroll, s.bankroll);
         const streak = BetEngine.analyzeStreak(s.history);
         const stage = BetEngine.getStage(s.bankroll);
-        const risk = BetEngine.assessRisk({
-            bankroll: s.bankroll,
-            initialBankroll: s.initialBankroll,
-            history: s.history,
-            dailyPL: s.dailyPL,
-            sessionLosses: s.sessionLosses,
-            maxDailyLossPct: s.maxDailyLossPct,
-        });
-        const ev = BetEngine.expectedValue(
-            s.history.length >= 10 ? BetEngine.calcWinRate(s.history, 50) : s.estimatedWR / 100,
-            0.90
-        );
+        const risk = BetEngine.assessRisk({ bankroll: s.bankroll, initialBankroll: s.initialBankroll, history: s.history, dailyPL: s.dailyPL, sessionLosses: s.sessionLosses, maxDailyLossPct: s.maxDailyLossPct });
+        const edge = BetEngine.edgeStrength(s.history, 0.90, s.estimatedWR);
+        const tilt = BetEngine.detectTilt(s.history);
+        const session = BetEngine.sessionAnalysis(s.history, s.initialBankroll, s.bankroll);
+        const time = BetEngine.analyzeTimePatterns(s.history);
+        const motivation = BetEngine.getMotivation(s.history, s.bankroll, s.initialBankroll);
 
-        // STATUS / TÌNH TRẠNG
-        if (matches(q, ['tình trạng', 'hiện tại', 'status', 'overview', 'tổng quan', 'đang ở đâu', 'vốn bao nhiêu'])) {
-            return generateStatusReport(s, stats, stage, streak, risk, ev);
-        }
+        if (matches(q, ['tình trạng', 'hiện tại', 'status', 'overview', 'tổng quan'])) return genStatus(s, stats, stage, streak, risk, edge, session, motivation);
+        if (matches(q, ['tiếp theo', 'nên làm gì', 'next', 'bước', 'gợi ý', 'suggest', 'khuyến nghị'])) return genNextStep(s, stats, stage, streak, risk, edge, tilt, motivation);
+        if (matches(q, ['rủi ro', 'risk', 'nguy hiểm', 'an toàn', 'stop loss'])) return genRisk(s, stats, stage, streak, risk, tilt, edge);
+        if (matches(q, ['chiến thuật', 'strategy', 'cách chơi', 'kelly', 'sizing', 'phương pháp'])) return genStrategy(s, stats, stage, edge, session);
+        if (matches(q, ['tỉ lệ thắng', 'win rate', 'wr', 'bayesian', 'xác suất'])) return genWR(s, stats, streak, edge);
+        if (matches(q, ['vốn', 'bankroll', 'tiền', 'lãi', 'lỗ', 'profit'])) return genBankroll(s, stats, stage, session);
+        if (matches(q, ['chuỗi', 'streak', 'liên tiếp', 'thua liên', 'thắng liên'])) return genStreak(s, streak, stage, motivation);
+        if (matches(q, ['dừng', 'nghỉ', 'stop', 'break', 'khi nào'])) return genStop(s, stats, risk, streak, tilt);
+        if (matches(q, ['mục tiêu', 'target', 'progress', 'bao giờ'])) return genTarget(s, stats, stage);
+        if (matches(q, ['momentum', 'đà', 'trend', 'xu hướng'])) return genMomentum(s, edge, streak);
+        if (matches(q, ['tilt', 'cảm xúc', 'tâm lý', 'bình tĩnh'])) return genTilt(s, tilt, streak);
+        if (matches(q, ['thời gian', 'khung giờ', 'time', 'giờ nào'])) return genTime(s, time);
+        if (matches(q, ['động lực', 'motivat', 'tinh thần'])) return genMotivation(s, stats, motivation);
+        if (matches(q, ['cược', 'bet', 'đặt', 'lệnh', 'vào', 'bao nhiêu', 'nên cược'])) return genNextStep(s, stats, stage, streak, risk, edge, tilt, motivation);
 
-        // NEXT STEP / BƯỚC TIẾP THEO
-        if (matches(q, ['tiếp theo', 'nên làm gì', 'next', 'bước', 'khuyến nghị', 'suggest', 'gợi ý'])) {
-            return generateNextStep(s, stats, stage, streak, risk, ev);
-        }
-
-        // RISK / RỦI RO
-        if (matches(q, ['rủi ro', 'risk', 'nguy hiểm', 'an toàn', 'stop loss', 'dừng'])) {
-            return generateRiskAdvice(s, stats, stage, streak, risk);
-        }
-
-        // STRATEGY / CHIẾN THUẬT
-        if (matches(q, ['chiến thuật', 'strategy', 'cách chơi', 'phương pháp', 'kelly', 'sizing'])) {
-            return generateStrategyAdvice(s, stats, stage, streak, risk, ev);
-        }
-
-        // WIN RATE
-        if (matches(q, ['tỉ lệ thắng', 'win rate', 'wr', 'thắng được bao nhiêu'])) {
-            return generateWRAnalysis(s, stats, streak);
-        }
-
-        // BANKROLL / VỐN
-        if (matches(q, ['vốn', 'bankroll', 'tiền', 'lãi', 'lỗ', 'profit', 'pl'])) {
-            return generateBankrollAdvice(s, stats, stage);
-        }
-
-        // STREAK / CHUỖI
-        if (matches(q, ['chuỗi', 'streak', 'liên tiếp', 'thua liên', 'thắng liên'])) {
-            return generateStreakAdvice(s, streak, stage);
-        }
-
-        // STOP / KHI NÀO DỪNG
-        if (matches(q, ['khi nào dừng', 'nên dừng', 'nên nghỉ', 'stop', 'break'])) {
-            return generateStopAdvice(s, stats, risk, streak);
-        }
-
-        // TARGET / MỤC TIÊU
-        if (matches(q, ['mục tiêu', 'target', '500 triệu', 'bao giờ đạt', 'progress'])) {
-            return generateTargetAdvice(s, stats, stage);
-        }
-
-        // GENERAL BETTING QUESTION
-        if (matches(q, ['cược', 'bet', 'đặt', 'lệnh', 'vào', 'bao nhiêu', 'nên cược'])) {
-            return generateNextStep(s, stats, stage, streak, risk, ev);
-        }
-
-        // Fallback for betting context
-        return `Tôi hiểu bạn đang hỏi về: "<em>${text}</em>"<br><br>Hãy thử hỏi cụ thể hơn, ví dụ:<br>• "Tình trạng hiện tại?"<br>• "Nên cược bao nhiêu?"<br>• "Mức rủi ro hiện tại?"<br>• "Chiến thuật phù hợp?"<br>• "Khi nào nên dừng?"<br><br>Hoặc bấm các nút gợi ý bên dưới 👇`;
+        return `Tôi hiểu bạn đang hỏi: "<em>${text}</em>"<br><br>Hãy thử hỏi cụ thể:<br>• "Tình trạng hiện tại?"<br>• "Nên cược bao nhiêu?"<br>• "Phân tích momentum?"<br>• "Tâm lý tôi đang thế nào?"<br>• "Khung giờ nào tốt nhất?"<br>• "Cho tôi động lực!"<br><br>Hoặc bấm nút gợi ý bên dưới 👇`;
     }
 
-    // ===== GENERATORS =====
-    function generateStatusReport(s, stats, stage, streak, risk, ev) {
-        let msg = `📊 <strong>BÁO CÁO TÌNH TRẠNG</strong><br><br>`;
-        msg += `💰 Vốn: <span class="msg-highlight">${fmtFull(s.bankroll)}</span>`;
-        msg += ` (${stats.profitPct >= 0 ? '+' : ''}${stats.profitPct.toFixed(1)}%)<br>`;
-        msg += `🎯 ${stage.name}: ${stage.label}<br>`;
-        msg += `📈 WR: <span class="msg-highlight">${stats.wr.toFixed(1)}%</span> | ${stats.wins}W - ${stats.losses}L<br>`;
-        msg += `📊 ROI: ${stats.roi >= 0 ? '+' : ''}${stats.roi.toFixed(1)}%<br>`;
-        msg += `📉 P&L: ${stats.totalPL >= 0 ? '<span class="msg-highlight">+' : '<span class="msg-warn">'}${fmt(stats.totalPL)}</span><br>`;
-        msg += `⚡ EV: ${(ev * 100).toFixed(1)}%<br>`;
+    // ===== RESPONSE GENERATORS =====
 
-        if (streak.current > 0 && streak.currentType) {
-            msg += `🔥 Chuỗi: ${streak.current} ${streak.currentType === 'WIN' ? 'thắng' : 'thua'} liên tiếp<br>`;
-        }
-
-        msg += `<br>⚠️ Rủi ro: `;
-        if (risk.level === 'LOW') msg += '<span class="msg-highlight">Thấp ✅</span>';
-        else if (risk.level === 'MEDIUM') msg += '<span style="color:#ffb74d;font-weight:600">Trung bình ⚠️</span>';
-        else msg += `<span class="msg-warn">${risk.level === 'BLOCKED' ? 'DỪNG 🛑' : 'Cao ❌'}</span>`;
-
-        return msg;
+    function genStatus(s, stats, stage, streak, risk, edge, session, motivation) {
+        let m = `📊 <strong>BÁO CÁO PHÂN TÍCH</strong><br><br>`;
+        m += `💰 Vốn: <span class="msg-highlight">${fmtFull(s.bankroll)}</span> (${stats.profitPct >= 0 ? '+' : ''}${stats.profitPct.toFixed(1)}%)<br>`;
+        m += `🎯 ${stage.name}: ${stage.label}<br>`;
+        m += `📈 WR: <span class="msg-highlight">${stats.wr.toFixed(1)}%</span> | Bayesian: ${(BetEngine.bayesianWinRate(s.history) * 100).toFixed(1)}%<br>`;
+        m += `📊 ROI: ${stats.roi >= 0 ? '+' : ''}${stats.roi.toFixed(1)}% | P&L: ${stats.totalPL >= 0 ? '<span class="msg-highlight">+' : '<span class="msg-warn">'}${fmt(stats.totalPL)}</span><br>`;
+        m += `⚡ Edge: <span class="msg-highlight">${edge.label}</span> (${edge.score}/100) | EV: ${(edge.ev * 100).toFixed(1)}%<br>`;
+        m += `📉 Momentum: ${edge.momentum > 20 ? '<span class="msg-highlight">📈 Tích cực</span>' : edge.momentum < -20 ? '<span class="msg-warn">📉 Tiêu cực</span>' : '➡️ Trung tính'} (${edge.momentum > 0 ? '+' : ''}${edge.momentum})<br>`;
+        if (streak.current > 0) m += `🔥 Chuỗi: ${streak.current} ${streak.currentType === 'WIN' ? 'thắng' : 'thua'} liên tiếp<br>`;
+        m += `🏗️ Session: ${session.phase} | PF: ${session.profitFactor === Infinity ? '∞' : session.profitFactor.toFixed(2)}<br>`;
+        m += `<br>⚠️ Rủi ro: ${riskBadge(risk.level)} (${risk.score}/100)<br>`;
+        m += `<br>${motivation}`;
+        return m;
     }
 
-    function generateNextStep(s, stats, stage, streak, risk, ev) {
+    function genNextStep(s, stats, stage, streak, risk, edge, tilt, motivation) {
         if (risk.level === 'BLOCKED') {
-            return `🛑 <strong>KHUYẾN NGHỊ: DỪNG LẠI</strong><br><br>Lý do: <span class="msg-warn">${risk.reasons.join(', ')}</span><br><br>Bước tiếp theo:<br>1. Nghỉ ngơi ít nhất 30 phút<br>2. Review lại lịch sử gần đây<br>3. Không cố gỡ — đây là sai lầm phổ biến nhất<br><br>💡 <em>Kỷ luật khi thua mới làm nên người chiến thắng.</em>`;
+            return `🛑 <strong>DỪNG LẠI!</strong><br><br>` +
+                `Lý do: <span class="msg-warn">${risk.reasons.join(', ')}</span><br><br>` +
+                `Bước tiếp:<br>1. ⏸️ Nghỉ ngơi ít nhất 30 phút<br>2. 📖 Review lại lịch sử gần đây<br>3. 🧘 Không cố gỡ — đây là sai lầm phổ biến nhất<br><br>` +
+                `💡 <em>Người chiến thắng không phải người thắng mọi lệnh, mà là người biết DỪNG đúng lúc.</em>`;
+        }
+
+        if (tilt.isTilting) {
+            return `🧠 <strong>CẢNH BÁO TÂM LÝ</strong><br><br>` +
+                `Hệ thống phát hiện dấu hiệu TILT:<br>` +
+                tilt.signals.map(s => `• <span class="msg-warn">${s}</span>`).join('<br>') + `<br><br>` +
+                `Khuyến nghị: <span class="msg-warn">DỪNG hoặc giảm 50% sizing</span><br><br>` +
+                `💡 <em>Tilt = kẻ thù #1. Khi cảm xúc lên, xác suất thắng giảm.</em>`;
         }
 
         const rec = BetEngine.recommend({
             bankroll: s.bankroll, initialBankroll: s.initialBankroll, target: s.target,
-            history: s.history, odds: 0.90, confidence: 4,
+            history: s.history, odds: 0.90, confidence: 0,
             dailyPL: s.dailyPL, sessionLosses: s.sessionLosses,
             estimatedWR: s.estimatedWR, maxDailyLossPct: s.maxDailyLossPct,
         });
 
-        let msg = `🎯 <strong>BƯỚC TIẾP THEO</strong><br><br>`;
+        let m = `🎯 <strong>KHUYẾN NGHỊ LỆNH TIẾP</strong><br><br>`;
 
         if (s.history.length < 10) {
-            msg += `📌 Bạn đang ở <span class="msg-highlight">giai đoạn xác nhận Edge</span> (${s.history.length}/10 lệnh).<br><br>`;
-            msg += `✅ Nên:<br>• Cược nhỏ (3-5% vốn) = <span class="msg-highlight">${fmtFull(rec.amount)}</span><br>`;
-            msg += `• Ghi chép cẩn thận kết quả<br>• Chưa tăng cược cho đến khi WR ≥ 65%<br><br>`;
-            msg += `❌ Không nên:<br>• Cược quá 5% vốn<br>• Skip khi gặp chuỗi thua nhỏ<br>• Thay đổi chiến thuật giữa chừng`;
+            m += `📌 <span class="msg-highlight">Giai đoạn calibrate</span> (${s.history.length}/10 lệnh)<br>`;
+            m += `Hệ thống đang thu thập dữ liệu để calibrate Bayesian WR.<br><br>`;
+            m += `💰 Cược khuyến nghị: <span class="msg-highlight">${fmtFull(rec.amount)}</span> (3-5% vốn)<br>`;
+            m += `📊 Kelly: ${(rec.kellyPct * 100).toFixed(1)}% | Edge: ${edge.label}<br><br>`;
+            m += `✅ Nên: Cược nhỏ, ghi chép cẩn thận, tin vào quy trình<br>`;
+            m += `❌ Không: Cược lớn, thay đổi chiến thuật, bỏ qua stop-loss`;
         } else {
-            msg += `Hệ thống gợi ý lệnh tiếp theo:<br><br>`;
-            msg += `💰 Số tiền: <span class="msg-highlight">${fmtFull(rec.amount)}</span><br>`;
-            msg += `📊 Kelly: ${(rec.kellyPct * 100).toFixed(1)}% | ${stage.name}<br>`;
+            m += `💰 Số tiền: <span class="msg-highlight">${fmtFull(rec.amount)}</span><br>`;
+            m += `📊 Kelly: ${(rec.kellyPct * 100).toFixed(1)}% | Edge: ${edge.label} (${edge.score}/100)<br>`;
+            m += `📈 Momentum: ${edge.momentum > 0 ? '+' : ''}${edge.momentum} | Bayesian WR: ${(BetEngine.bayesianWinRate(s.history) * 100).toFixed(1)}%<br>`;
 
             if (streak.consecutiveLosses >= 2) {
-                msg += `<br>⚠️ Đang có ${streak.consecutiveLosses} thua liên tiếp → Đã giảm cược ${streak.consecutiveLosses >= 3 ? '50%' : '30%'}<br>`;
-                msg += `💡 <em>Hãy bình tĩnh và tuân theo hệ thống.</em>`;
+                m += `<br>⚠️ ${streak.consecutiveLosses} thua liên tiếp → Đã giảm cược ${streak.consecutiveLosses >= 3 ? '50-70%' : '30%'}<br>`;
+                m += `💡 <em>Variance là bình thường. Hệ thống tự bảo vệ vốn cho bạn.</em>`;
             } else if (streak.currentType === 'WIN' && streak.current >= 3) {
-                msg += `<br>🔥 Chuỗi ${streak.current} thắng! Nhưng hãy nhớ:<br>`;
-                msg += `💡 <em>Không tăng cược quá max cho phép. Hot hand là bẫy.</em>`;
+                m += `<br>🔥 Chuỗi ${streak.current} thắng! Tuyệt vời!<br>`;
+                m += `💡 <em>Nhưng GIỮ ĐÚNG sizing. "Hot hand" là bẫy tâm lý.</em>`;
             } else {
-                msg += `<br>✅ Tình hình ổn định. Tiếp tục theo hệ thống.`;
+                m += `<br>✅ Tình hình ổn định. Tiếp tục theo hệ thống.`;
             }
         }
 
-        return msg;
+        m += `<br><br>${motivation}`;
+        return m;
     }
 
-    function generateRiskAdvice(s, stats, stage, streak, risk) {
-        let msg = `⚠️ <strong>ĐÁNH GIÁ RỦI RO</strong><br><br>`;
+    function genRisk(s, stats, stage, streak, risk, tilt, edge) {
+        let m = `⚠️ <strong>ĐÁNH GIÁ RỦI RO ĐA CHIỀU</strong><br><br>`;
+        m += `Mức rủi ro: ${riskBadge(risk.level)} (${risk.score}/100)<br><br>`;
 
-        msg += `Mức rủi ro: `;
-        if (risk.level === 'LOW') msg += '<span class="msg-highlight">THẤP ✅</span>';
-        else if (risk.level === 'MEDIUM') msg += '<span style="color:#ffb74d;font-weight:600">TRUNG BÌNH ⚠️</span>';
-        else if (risk.level === 'HIGH') msg += '<span class="msg-warn">CAO ❌</span>';
-        else msg += '<span class="msg-warn">DỪNG NGAY 🛑</span>';
-
-        msg += `<br>Điểm rủi ro: ${risk.score}/100<br><br>`;
+        m += `📋 <strong>5 yếu tố phân tích:</strong><br>`;
+        m += `${streak.consecutiveLosses >= 2 ? '🔴' : '🟢'} Chuỗi thua: ${streak.consecutiveLosses} liên tiếp<br>`;
+        const dlPct = s.dailyPL < 0 ? (Math.abs(s.dailyPL) / s.bankroll * 100).toFixed(1) : '0';
+        m += `${parseFloat(dlPct) >= s.maxDailyLossPct ? '🔴' : '🟢'} Stop-loss ngày: ${dlPct}% / ${s.maxDailyLossPct}%<br>`;
+        m += `${edge.momentum < -30 ? '🔴' : '🟢'} Momentum: ${edge.momentum > 0 ? '+' : ''}${edge.momentum}<br>`;
+        m += `${tilt.isTilting ? '🔴' : '🟢'} Tilt: ${tilt.isTilting ? `Phát hiện (${tilt.severity}/100)` : 'Không'}<br>`;
+        m += `${s.bankroll < s.initialBankroll * 0.7 ? '🟡' : '🟢'} Vốn: ${((s.bankroll / s.initialBankroll) * 100).toFixed(0)}% ban đầu<br>`;
 
         if (risk.reasons.length > 0 && risk.level !== 'LOW') {
-            msg += `📋 Nguyên nhân:<br>`;
-            risk.reasons.forEach(r => { msg += `• <span class="msg-warn">${r}</span><br>`; });
-            msg += '<br>';
+            m += `<br>⚡ Chi tiết:<br>`;
+            risk.reasons.forEach(r => { m += `• <span class="msg-warn">${r}</span><br>`; });
         }
 
-        msg += `📐 Ngưỡng bảo vệ:<br>`;
-        msg += `• Stop-loss ngày: ${s.maxDailyLossPct}% (${s.dailyPL < 0 ? 'Đã lỗ ' + (Math.abs(s.dailyPL) / s.bankroll * 100).toFixed(1) + '%' : 'Chưa kích hoạt'})<br>`;
-        msg += `• Max cược/lệnh: ${(stage.maxPct * 100)}% = ${fmtFull(Math.round(s.bankroll * stage.maxPct))}<br>`;
-        msg += `• Dừng nếu thua 3 liên tiếp<br>`;
+        m += `<br>📐 Ngưỡng bảo vệ: Max ${(stage.maxPct * 100)}% = ${fmtFull(Math.round(s.bankroll * stage.maxPct))}/lệnh<br>`;
 
-        if (risk.level === 'LOW') {
-            msg += `<br>✅ An toàn để tiếp tục cược theo hệ thống.`;
-        } else {
-            msg += `<br>💡 <em>Giảm cược hoặc nghỉ ngơi khi rủi ro cao.</em>`;
-        }
+        if (risk.level === 'LOW') m += `<br>✅ <span class="msg-highlight">An toàn để cược. Tất cả chỉ số tốt!</span>`;
+        else m += `<br>💡 <em>Giảm cược hoặc nghỉ ngơi khi rủi ro tăng.</em>`;
 
-        return msg;
+        return m;
     }
 
-    function generateStrategyAdvice(s, stats, stage, streak, risk, ev) {
-        let msg = `🧠 <strong>CHIẾN THUẬT HIỆN TẠI</strong><br><br>`;
+    function genStrategy(s, stats, stage, edge, session) {
+        const wr = s.history.length >= 5 ? BetEngine.bayesianWinRate(s.history) : s.estimatedWR / 100;
+        const kelly = BetEngine.kellyFraction(wr, 0.90);
+        const ci = s.history.length >= 5 ? BetEngine.bayesianCI(s.history) : null;
 
-        msg += `📍 ${stage.name} — ${stage.label}<br>`;
-        msg += `📊 Kelly ÷${stage.kellyDiv} (fractional) | Max ${(stage.maxPct * 100)}%<br><br>`;
+        let m = `🧠 <strong>PHÂN TÍCH CHIẾN THUẬT</strong><br><br>`;
+        m += `📍 ${stage.name} — ${stage.label} | Kelly ÷${stage.kellyDiv}<br><br>`;
 
-        msg += `🔬 <strong>Công thức Kelly Criterion:</strong><br>`;
-        msg += `f* = (b×p - q) / b<br>`;
+        m += `🔬 <strong>Kelly Criterion (Bayesian):</strong><br>`;
+        m += `• WR Bayesian: ${(wr * 100).toFixed(1)}%`;
+        if (ci) m += ` [${(ci.lower * 100).toFixed(1)}% - ${(ci.upper * 100).toFixed(1)}%]`;
+        m += `<br>`;
+        m += `• Full Kelly: ${(kelly * 100).toFixed(1)}%<br>`;
+        m += `• Fractional (÷${stage.kellyDiv}): <span class="msg-highlight">${(kelly / stage.kellyDiv * 100).toFixed(1)}%</span><br><br>`;
 
-        const actualWR = s.history.length >= 10 ? BetEngine.calcWinRate(s.history, 50) : s.estimatedWR / 100;
-        const kelly = BetEngine.kellyFraction(actualWR, 0.90);
-        msg += `• p = ${(actualWR * 100).toFixed(1)}% | b = 0.90<br>`;
-        msg += `• Full Kelly = ${(kelly * 100).toFixed(1)}%<br>`;
-        msg += `• Fractional = ${(kelly / stage.kellyDiv * 100).toFixed(1)}% (÷${stage.kellyDiv})<br><br>`;
+        m += `⚡ <strong>Edge Analysis:</strong><br>`;
+        m += `• Điểm edge: <span class="msg-highlight">${edge.score}/100 (${edge.label})</span><br>`;
+        m += `• EV/lệnh: ${edge.ev >= 0 ? '<span class="msg-highlight">+' : '<span class="msg-warn">'}${(edge.ev * 100).toFixed(1)}%</span><br>`;
+        m += `• Momentum: ${edge.momentum > 0 ? '+' : ''}${edge.momentum}<br><br>`;
 
-        if (ev > 0) {
-            msg += `✅ EV dương (<span class="msg-highlight">+${(ev * 100).toFixed(1)}%</span>) → Có edge, tiếp tục<br>`;
-        } else {
-            msg += `<span class="msg-warn">❌ EV âm (${(ev * 100).toFixed(1)}%) → Không có edge ở odds hiện tại</span><br>`;
-            msg += `💡 Cần WR > 52.6% với odds 0.90 để có EV dương<br>`;
-        }
+        m += `🏗️ <strong>Session Health:</strong><br>`;
+        m += `• Phase: ${session.phase} | Profit Factor: ${session.profitFactor === Infinity ? '∞' : session.profitFactor.toFixed(2)}<br>`;
+        m += `• Sharpe: ${session.sharpeRatio.toFixed(2)} | Max DD: ${(session.maxDrawdown * 100).toFixed(1)}%<br>`;
+        m += `• R:R Ratio: ${session.riskRewardRatio.toFixed(2)}<br>`;
+        m += `• ${session.recommendation}<br><br>`;
 
-        msg += `<br>📋 <strong>Quy tắc vàng:</strong><br>`;
-        msg += `1. Luôn dùng fractional Kelly, không full<br>`;
-        msg += `2. Giảm 30% khi thua 2 liên tiếp<br>`;
-        msg += `3. Giảm 50% khi thua 3 liên tiếp<br>`;
-        msg += `4. Không bao giờ cược hơn 10% vốn`;
+        m += `📋 <strong>Quy tắc vàng:</strong><br>`;
+        m += `1. Luôn dùng Fractional Kelly<br>`;
+        m += `2. Giảm 30% sau 2 thua, 50% sau 3, 70% sau 4<br>`;
+        m += `3. Không bao giờ > ${(stage.maxPct * 100)}% vốn<br>`;
+        m += `4. Cần WR > 52.6% (odds 0.90) để có EV+`;
 
-        return msg;
+        return m;
     }
 
-    function generateWRAnalysis(s, stats, streak) {
-        if (s.history.length === 0) {
-            return `📈 Bạn chưa có lệnh nào. Hãy đặt vài lệnh trước để tôi phân tích WR nhé!<br><br>💡 <em>Cần ít nhất 10 lệnh để có dữ liệu đáng tin cậy.</em>`;
-        }
+    function genWR(s, stats, streak, edge) {
+        if (s.history.length === 0) return '📈 Chưa có dữ liệu. Đặt vài lệnh để hệ thống calibrate Bayesian WR nhé!';
 
-        let msg = `📈 <strong>PHÂN TÍCH TỈ LỆ THẮNG</strong><br><br>`;
-        msg += `Tổng quát: <span class="msg-highlight">${stats.wr.toFixed(1)}%</span> (${stats.wins}W/${stats.total})<br>`;
+        const bayesWR = BetEngine.bayesianWinRate(s.history);
+        const ci = BetEngine.bayesianCI(s.history);
+
+        let m = `📈 <strong>PHÂN TÍCH XÁC SUẤT</strong><br><br>`;
+        m += `WR thô: <span class="msg-highlight">${stats.wr.toFixed(1)}%</span> (${stats.wins}/${stats.total})<br>`;
+        m += `WR Bayesian: <span class="msg-highlight">${(bayesWR * 100).toFixed(1)}%</span><br>`;
+        m += `Khoảng tin cậy 95%: [${(ci.lower * 100).toFixed(1)}% — ${(ci.upper * 100).toFixed(1)}%]<br>`;
+        m += `Độ chính xác: ±${(ci.sd * 100).toFixed(1)}%<br><br>`;
 
         if (s.history.length >= 10) {
             const recent10 = BetEngine.calcWinRate(s.history, 10) * 100;
-            msg += `10 lệnh gần nhất: ${recent10.toFixed(1)}%<br>`;
-
-            if (recent10 < stats.wr - 10) {
-                msg += `<span class="msg-warn">⚠️ WR gần đây giảm đáng kể!</span><br>`;
-            } else if (recent10 > stats.wr + 5) {
-                msg += `<span class="msg-highlight">✅ WR gần đây tăng tốt!</span><br>`;
-            }
+            m += `📊 10 lệnh gần nhất: ${recent10.toFixed(1)}%`;
+            m += recent10 > stats.wr + 5 ? ' <span class="msg-highlight">↑ Đang tăng!</span>' : recent10 < stats.wr - 10 ? ' <span class="msg-warn">↓ Đang giảm!</span>' : ' ➡️ Ổn định';
+            m += '<br>';
         }
 
-        msg += `<br>📊 Chuỗi dài nhất: ${streak.longestWin} thắng / ${streak.longestLoss} thua<br>`;
-        msg += `🎯 Cần WR ≥ 53% (odds 0.90) để có lợi nhuận dài hạn`;
+        m += `<br>🔬 <strong>Phân tích Bayesian:</strong><br>`;
+        m += `Hệ thống dùng Beta(${7 + stats.wins}, ${3 + stats.losses}) distribution.<br>`;
+        m += `Prior: 70% (niềm tin ban đầu).<br>`;
+        m += `Posterior: ${(bayesWR * 100).toFixed(1)}% (cập nhật từ ${stats.total} lệnh).<br><br>`;
 
-        if (stats.wr >= 65) {
-            msg += `<br><br><span class="msg-highlight">🎉 WR rất tốt! Bạn đang có edge rõ ràng.</span>`;
-        } else if (stats.wr >= 53) {
-            msg += `<br><br>✅ WR đủ để có lợi nhuận. Tiếp tục giữ kỷ luật!`;
-        } else if (stats.total >= 20) {
-            msg += `<br><br><span class="msg-warn">⚠️ WR dưới ngưỡng lợi nhuận. Cân nhắc dừng và review chiến thuật.</span>`;
-        }
+        if (ci.lower > 0.526) m += `<span class="msg-highlight">✅ Ngay cả worst-case (${(ci.lower * 100).toFixed(1)}%) vẫn có EV+!</span>`;
+        else if (bayesWR > 0.526) m += `✅ Bayesian WR > 52.6% → Có edge, nhưng CI còn rộng. Cần thêm data.`;
+        else m += `<span class="msg-warn">⚠️ Bayesian WR < ngưỡng EV+. Cân nhắc review chiến thuật.</span>`;
 
-        return msg;
+        return m;
     }
 
-    function generateBankrollAdvice(s, stats, stage) {
-        let msg = `💰 <strong>TÌNH HÌNH VỐN</strong><br><br>`;
-        msg += `Vốn ban đầu: ${fmtFull(s.initialBankroll)}<br>`;
-        msg += `Vốn hiện tại: <span class="msg-highlight">${fmtFull(s.bankroll)}</span><br>`;
-        msg += `P&L: ${stats.totalPL >= 0 ? '<span class="msg-highlight">+' : '<span class="msg-warn">'}${fmtFull(stats.totalPL)}</span> (${stats.profitPct >= 0 ? '+' : ''}${stats.profitPct.toFixed(1)}%)<br>`;
-        msg += `ROI: ${stats.roi >= 0 ? '+' : ''}${stats.roi.toFixed(1)}%<br><br>`;
+    function genBankroll(s, stats, stage, session) {
+        let m = `💰 <strong>SỨC KHỎE VỐN</strong><br><br>`;
+        m += `Ban đầu: ${fmtFull(s.initialBankroll)}<br>`;
+        m += `Hiện tại: <span class="msg-highlight">${fmtFull(s.bankroll)}</span><br>`;
+        m += `P&L: ${stats.totalPL >= 0 ? '<span class="msg-highlight">+' : '<span class="msg-warn">'}${fmtFull(stats.totalPL)}</span> (${stats.profitPct >= 0 ? '+' : ''}${stats.profitPct.toFixed(1)}%)<br>`;
+        m += `ROI: ${stats.roi >= 0 ? '+' : ''}${stats.roi.toFixed(1)}%<br><br>`;
+
+        m += `🏗️ <strong>Session Metrics:</strong><br>`;
+        m += `• Profit Factor: ${session.profitFactor === Infinity ? '∞' : session.profitFactor.toFixed(2)} ${session.profitFactor > 1.5 ? '✅' : session.profitFactor < 0.8 ? '❌' : '⚠️'}<br>`;
+        m += `• Max Drawdown: ${(session.maxDrawdown * 100).toFixed(1)}%<br>`;
+        m += `• Avg Win: ${fmtFull(Math.round(session.avgWinSize))}<br>`;
+        m += `• Avg Loss: ${fmtFull(Math.round(session.avgLossSize))}<br>`;
+        m += `• ${session.recommendation}<br><br>`;
 
         const progress = (s.bankroll / s.target * 100).toFixed(1);
-        msg += `🏁 Tiến độ: ${progress}% → ${fmtFull(s.target)}<br>`;
-        msg += `📍 ${stage.name}: ${stage.label}`;
+        m += `🏁 Tiến độ: ${progress}% → ${fmtFull(s.target)}`;
 
         if (s.bankroll < s.initialBankroll * 0.7) {
-            msg += `<br><br><span class="msg-warn">⚠️ Vốn giảm đáng kể. Hãy giảm cược và review chiến thuật trước khi tiếp tục.</span>`;
+            m += `<br><br><span class="msg-warn">⚠️ Vốn giảm đáng kể. Review chiến thuật trước khi tiếp tục.</span>`;
         }
-
-        return msg;
+        return m;
     }
 
-    function generateStreakAdvice(s, streak, stage) {
-        if (s.history.length === 0) {
-            return '📊 Chưa có dữ liệu chuỗi. Hãy vào vài lệnh trước nhé!';
-        }
-
-        let msg = `🔥 <strong>PHÂN TÍCH CHUỖI</strong><br><br>`;
-        msg += `Hiện tại: <span class="msg-highlight">${streak.current} ${streak.currentType === 'WIN' ? 'thắng' : 'thua'}</span> liên tiếp<br>`;
-        msg += `Kỷ lục thắng: ${streak.longestWin} | Kỷ lục thua: ${streak.longestLoss}<br><br>`;
+    function genStreak(s, streak, stage, motivation) {
+        if (s.history.length === 0) return '📊 Chưa có dữ liệu chuỗi.';
+        let m = `🔥 <strong>PHÂN TÍCH CHUỖI</strong><br><br>`;
+        m += `Hiện tại: <span class="msg-highlight">${streak.current} ${streak.currentType === 'WIN' ? 'thắng' : 'thua'}</span><br>`;
+        m += `Kỷ lục: ${streak.longestWin}W / ${streak.longestLoss}L<br><br>`;
 
         if (streak.consecutiveLosses >= 3) {
-            msg += `<span class="msg-warn">🛑 ${streak.consecutiveLosses} thua liên tiếp!</span><br>`;
-            msg += `→ Hệ thống đã tự động giảm 50% cược<br>`;
-            msg += `💡 <em>Khuyến nghị: Nghỉ ngơi 30 phút trước khi tiếp tục</em>`;
-        } else if (streak.consecutiveLosses >= 2) {
-            msg += `⚠️ 2 thua liên tiếp<br>`;
-            msg += `→ Hệ thống đã giảm 30% cược<br>`;
-            msg += `💡 <em>Bình tĩnh, tuân theo hệ thống Kelly</em>`;
-        } else if (streak.currentType === 'WIN' && streak.current >= 4) {
-            msg += `🔥 Chuỗi thắng đẹp! Nhưng hãy nhớ:<br>`;
-            msg += `• Không tăng cược vì "đang hên"<br>`;
-            msg += `• Hot hand fallacy là kẻ thù #1<br>`;
-            msg += `• Giữ đúng % Kelly dù đang thắng`;
+            m += `<span class="msg-warn">🛑 ${streak.consecutiveLosses} thua liên tiếp!</span><br>`;
+            m += `→ Hệ thống đã giảm ${streak.consecutiveLosses >= 4 ? '70%' : '50%'} sizing<br>`;
+            m += `→ Xác suất thua ${streak.consecutiveLosses} liên tiếp (WR 70%): ~${(Math.pow(0.3, streak.consecutiveLosses) * 100).toFixed(2)}%<br>`;
+            m += `💡 <em>Đây là variance, KHÔNG phải lỗi của bạn. Nghỉ 30 phút.</em>`;
+        } else if (streak.currentType === 'WIN' && streak.current >= 3) {
+            m += `🔥 Chuỗi thắng đẹp!<br>`;
+            m += `Xác suất ${streak.current} thắng liên tiếp (WR 70%): ~${(Math.pow(0.7, streak.current) * 100).toFixed(1)}%<br>`;
+            m += `💡 <em>Giữ đúng sizing. Hot hand fallacy là kẻ thù!</em>`;
         } else {
-            msg += `✅ Chuỗi ổn định. Tiếp tục theo kế hoạch.`;
+            m += `✅ Chuỗi bình thường. Tiếp tục theo kế hoạch.`;
         }
 
-        return msg;
+        m += `<br><br>${motivation}`;
+        return m;
     }
 
-    function generateStopAdvice(s, stats, risk, streak) {
-        let msg = `⏸️ <strong>KHI NÀO NÊN DỪNG?</strong><br><br>`;
-
+    function genStop(s, stats, risk, streak, tilt) {
+        let m = `⏸️ <strong>CHECKLIST DỪNG LỆNH</strong><br><br>`;
         let shouldStop = false;
-        msg += `Checklist dừng lệnh:<br>`;
 
-        // Check 1: Consecutive losses
-        const cl = streak.consecutiveLosses >= 3;
-        msg += `${cl ? '🔴' : '🟢'} Thua ≥3 liên tiếp: ${cl ? 'CÓ → DỪNG' : 'Không'}<br>`;
-        if (cl) shouldStop = true;
+        const checks = [
+            { label: 'Thua ≥3 liên tiếp', bad: streak.consecutiveLosses >= 3 },
+            { label: `Lỗ ngày ≥${s.maxDailyLossPct}%`, bad: s.dailyPL < 0 && (Math.abs(s.dailyPL) / s.bankroll * 100) >= s.maxDailyLossPct },
+            { label: 'Vốn giảm ≥50%', bad: s.bankroll < s.initialBankroll * 0.5 },
+            { label: 'Rủi ro cao/BLOCKED', bad: risk.level === 'HIGH' || risk.level === 'BLOCKED' },
+            { label: 'Phát hiện TILT', bad: tilt.isTilting },
+        ];
 
-        // Check 2: Daily stop loss
-        const dlLoss = s.dailyPL < 0 && (Math.abs(s.dailyPL) / s.bankroll * 100) >= s.maxDailyLossPct;
-        msg += `${dlLoss ? '🔴' : '🟢'} Lỗ ngày ≥${s.maxDailyLossPct}%: ${dlLoss ? 'CÓ → DỪNG' : 'Không'}<br>`;
-        if (dlLoss) shouldStop = true;
+        checks.forEach(c => {
+            m += `${c.bad ? '🔴' : '🟢'} ${c.label}: ${c.bad ? '<span class="msg-warn">CÓ</span>' : 'Không'}<br>`;
+            if (c.bad) shouldStop = true;
+        });
 
-        // Check 3: Bankroll < 50%
-        const halfLost = s.bankroll < s.initialBankroll * 0.5;
-        msg += `${halfLost ? '🔴' : '🟢'} Vốn giảm ≥50%: ${halfLost ? 'CÓ → DỪNG' : 'Không'}<br>`;
-        if (halfLost) shouldStop = true;
+        m += `<br>`;
+        if (shouldStop) m += `<span class="msg-warn">⚠️ Có tín hiệu dừng! Hãy nghỉ ngơi.</span><br><br>`;
+        else m += `<span class="msg-highlight">✅ Chưa có tín hiệu dừng. An toàn để tiếp tục.</span><br><br>`;
 
-        // Check 4: Risk score
-        const highRisk = risk.level === 'HIGH' || risk.level === 'BLOCKED';
-        msg += `${highRisk ? '🔴' : '🟢'} Rủi ro cao: ${highRisk ? 'CÓ → Giảm/ DỪNG' : 'Không'}<br>`;
-        if (highRisk) shouldStop = true;
-
-        msg += `<br>`;
-        if (shouldStop) {
-            msg += `<span class="msg-warn">⚠️ Có tín hiệu dừng! Hãy nghỉ ngơi và review trước khi tiếp tục.</span>`;
-        } else {
-            msg += `<span class="msg-highlight">✅ Chưa có tín hiệu dừng. An toàn để tiếp tục.</span>`;
-        }
-
-        return msg;
+        m += `💡 <em>Nhớ: Biết dừng đúng lúc > thắng thêm 1 lệnh.</em>`;
+        return m;
     }
 
-    function generateTargetAdvice(s, stats, stage) {
+    function genTarget(s, stats, stage) {
         const progress = (s.bankroll / s.target * 100);
-        let msg = `🏁 <strong>TIẾN ĐỘ MỤC TIÊU</strong><br><br>`;
-        msg += `Hiện tại: <span class="msg-highlight">${fmtFull(s.bankroll)}</span> / ${fmtFull(s.target)}<br>`;
-        msg += `Tiến độ: <span class="msg-highlight">${progress.toFixed(1)}%</span><br>`;
-        msg += `Còn cần: ${fmtFull(s.target - s.bankroll)}<br><br>`;
+        let m = `🏁 <strong>TIẾN ĐỘ MỤC TIÊU</strong><br><br>`;
+        m += `Hiện tại: <span class="msg-highlight">${fmtFull(s.bankroll)}</span> / ${fmtFull(s.target)}<br>`;
+        m += `Tiến độ: <span class="msg-highlight">${progress.toFixed(1)}%</span><br>`;
+        m += `Còn cần: ${fmtFull(s.target - s.bankroll)}<br><br>`;
 
         if (stats.total >= 10 && stats.wr > 50) {
             const avgProfit = stats.totalPL / stats.total;
             if (avgProfit > 0) {
                 const betsNeeded = Math.ceil((s.target - s.bankroll) / avgProfit);
-                const hoursNeeded = Math.ceil(betsNeeded * 40 / 60);
-                msg += `📐 Ước tính (dựa trên hiệu suất hiện tại):<br>`;
-                msg += `• Lãi TB/lệnh: ${fmt(Math.round(avgProfit))}<br>`;
-                msg += `• Cần ~${betsNeeded} lệnh nữa<br>`;
-                msg += `• ~${hoursNeeded} giờ chơi (40 phút/trận)<br><br>`;
-                msg += `💡 <em>Đây là ước tính. Thực tế có thể dao động rất lớn do phương sai.</em>`;
-            } else {
-                msg += `<span class="msg-warn">⚠️ Hiệu suất hiện tại âm. Cần cải thiện WR trước khi tính mục tiêu.</span>`;
+                m += `📐 Ước tính (dựa trên data):<br>`;
+                m += `• Lãi TB/lệnh: ${fmt(Math.round(avgProfit))}<br>`;
+                m += `• Cần ~${betsNeeded} lệnh nữa<br>`;
+                m += `• ~${Math.ceil(betsNeeded * 40 / 60)} giờ (40 phút/trận)<br><br>`;
+                m += `💡 <em>⚠️ Ước tính. Thực tế dao động do variance. Compound interest sẽ tăng tốc.</em>`;
             }
         } else {
-            msg += `💡 Cần ít nhất 10 lệnh để ước tính thời gian đạt mục tiêu.`;
+            m += `💡 Cần ≥10 lệnh để ước tính.`;
+        }
+        return m;
+    }
+
+    function genMomentum(s, edge, streak) {
+        let m = `📈 <strong>PHÂN TÍCH MOMENTUM</strong><br><br>`;
+        m += `Điểm momentum: <span class="msg-highlight">${edge.momentum > 0 ? '+' : ''}${edge.momentum}</span> / [-100, +100]<br><br>`;
+
+        if (edge.momentum > 50) { m += `🟢 <span class="msg-highlight">MOMENTUM MẠNH</span><br>Kết quả gần đây rất tích cực. Hệ thống tăng nhẹ 5% sizing.<br><br>`; m += `💡 <em>Tốt! Nhưng đừng chủ quan. Momentum có thể đảo chiều bất kỳ lúc nào.</em>`; }
+        else if (edge.momentum > 20) { m += `🟢 Momentum tích cực. Xu hướng tốt. Tiếp tục.<br><br>`; m += `💡 <em>Giữ kỷ luật, đừng tăng cược vì thấy "thuận".</em>`; }
+        else if (edge.momentum > -20) { m += `➡️ Trung tính. Không có xu hướng rõ. Cược bình thường.<br><br>`; m += `💡 <em>Đây là trạng thái phổ biến nhất. Không cần thay đổi gì.</em>`; }
+        else if (edge.momentum > -50) { m += `🟡 Momentum tiêu cực. Hệ thống giảm 15% sizing.<br><br>`; m += `💡 <em>Giảm tốc tự nhiên. Đừng cố gỡ bằng cách tăng cược.</em>`; }
+        else { m += `<span class="msg-warn">🔴 MOMENTUM RẤT TIÊU CỰC</span><br>Hệ thống giảm 15% sizing + cảnh báo rủi ro.<br><br>`; m += `💡 <em>Cân nhắc nghỉ ngắn. Reset tâm lý trước khi tiếp.</em>`; }
+
+        return m;
+    }
+
+    function genTilt(s, tilt, streak) {
+        let m = `🧠 <strong>PHÂN TÍCH TÂM LÝ</strong><br><br>`;
+
+        if (!tilt.isTilting) {
+            m += `<span class="msg-highlight">✅ Không phát hiện dấu hiệu TILT</span><br>`;
+            m += `Điểm tilt: ${tilt.severity}/100<br><br>`;
+            m += `Bạn đang kiểm soát tốt cảm xúc. Tiếp tục giữ nhịp!<br><br>`;
+        } else {
+            m += `<span class="msg-warn">⚠️ PHÁT HIỆN DẤU HIỆU TILT (${tilt.severity}/100)</span><br><br>`;
+            m += `Tín hiệu:<br>`;
+            tilt.signals.forEach(s => { m += `• <span class="msg-warn">${s}</span><br>`; });
+            m += `<br>`;
         }
 
-        return msg;
+        m += `📋 <strong>3 quy tắc tâm lý:</strong><br>`;
+        m += `1. 🧘 Không cược khi đang tức/buồn/hưng phấn quá<br>`;
+        m += `2. 📏 Tuân thủ sizing hệ thống, KHÔNG tự ý tăng<br>`;
+        m += `3. ⏸️ Nghỉ 15 phút sau mỗi 5 lệnh liên tiếp<br><br>`;
+        m += `💡 <em>80% lỗ lệch hệ thống đến từ cảm xúc, không phải xác suất.</em>`;
+
+        return m;
     }
 
-    // ===== OFF-TOPIC DETECTION =====
+    function genTime(s, time) {
+        let m = `⏰ <strong>PHÂN TÍCH KHUNG GIỜ</strong><br><br>`;
+
+        if (!time.bestPeriod) {
+            m += `Cần thêm dữ liệu (≥10 lệnh phân bổ nhiều khung giờ) để phân tích.<br><br>`;
+            m += `💡 <em>Ghi chép thời gian mỗi lệnh để hệ thống phát hiện pattern!</em>`;
+            return m;
+        }
+
+        if (time.bestPeriod) m += `🟢 Khung giờ tốt nhất: <span class="msg-highlight">${time.bestPeriod.period}</span> (WR ${(time.bestPeriod.wr * 100).toFixed(0)}%, ${time.bestPeriod.total} lệnh)<br>`;
+        if (time.worstPeriod) m += `🔴 Khung giờ tệ nhất: <span class="msg-warn">${time.worstPeriod.period}</span> (WR ${(time.worstPeriod.wr * 100).toFixed(0)}%, ${time.worstPeriod.total} lệnh)<br>`;
+        if (time.currentPeriodAdvice) m += `<br>${time.currentPeriodAdvice}<br>`;
+
+        m += `<br>💡 <em>Tập trung cược vào khung giờ có WR cao nhất!</em>`;
+        return m;
+    }
+
+    function genMotivation(s, stats, motivation) {
+        const extras = [
+            '🎯 "Kỷ luật là cầu nối giữa mục tiêu và thành tựu."',
+            '💎 "Không phải người thắng nhiều nhất sẽ thắng cuối cùng, mà là người giữ được vốn."',
+            '🧮 "Xác suất không biết nói dối. Hãy tin vào toán học."',
+            '🛡️ "Bảo toàn vốn > Tăng vốn. Mất vốn = hết game."',
+            '🔥 "Mỗi lệnh đúng quy trình là một bước tiến, dù thắng hay thua."',
+            '🧘 "Người chơi giỏi nhất không phải người may mắn nhất, mà là người kỷ luật nhất."',
+            '📊 "Đừng để 1 lệnh thua phá hỏng 10 lệnh thắng. Quản lý rủi ro là vua."',
+        ];
+
+        let m = `🔥 <strong>ĐỘNG LỰC</strong><br><br>`;
+        m += `${motivation}<br><br>`;
+
+        // Pick 2 random extras
+        const shuffled = extras.sort(() => 0.5 - Math.random());
+        m += `${shuffled[0]}<br><br>${shuffled[1]}`;
+
+        if (stats.total > 0 && stats.profitPct > 0) {
+            m += `<br><br>📈 Bạn đang có lãi <span class="msg-highlight">+${stats.profitPct.toFixed(1)}%</span>! Tiếp tục giữ kỷ luật — bạn đang trên đường đúng! 💪`;
+        } else if (stats.total > 0) {
+            m += `<br><br>🛡️ Đang lỗ không có nghĩa là sai hướng. Nếu WR ${stats.wr.toFixed(0)}% > 53%, thời gian sẽ đứng về phía bạn. Kiên nhẫn! 💪`;
+        }
+
+        return m;
+    }
+
+    // ===== UTILITIES =====
+    function riskBadge(level) {
+        if (level === 'LOW') return '<span class="msg-highlight">THẤP ✅</span>';
+        if (level === 'MEDIUM') return '<span style="color:#ffb74d;font-weight:600">TRUNG BÌNH ⚠️</span>';
+        if (level === 'HIGH') return '<span class="msg-warn">CAO ❌</span>';
+        return '<span class="msg-warn">DỪNG NGAY 🛑</span>';
+    }
+
     function isOffTopic(q) {
-        const offTopicPatterns = [
-            'thời tiết', 'weather', 'nấu ăn', 'cooking', 'chính trị', 'politics',
-            'code', 'lập trình', 'programming', 'phim', 'movie', 'nhạc', 'music',
-            'hack', 'cheat', 'bẻ khóa', 'tình yêu', 'love', 'triết học', 'philosophy',
-            'toán học', 'math', 'lịch sử', 'history', 'game khác', 'minecraft',
-            'fortnite', 'valorant', 'facebook', 'tiktok', 'instagram', 'youtube',
-            'bitcoin', 'crypto', 'forex', 'stock', 'chứng khoán',
-            'ai là', 'who is', 'who are you', 'bạn là ai', 'tên gì',
-        ];
-
-        // Allow betting-related keywords
-        const onTopicPatterns = [
-            'cược', 'bet', 'vốn', 'bankroll', 'thắng', 'thua', 'win', 'loss',
-            'kelly', 'odds', 'rủi ro', 'risk', 'chiến thuật', 'strategy',
-            'lệnh', 'chuỗi', 'streak', 'roi', 'ev', 'expected', 'dừng', 'stop',
-            'mục tiêu', 'target', 'lãi', 'lỗ', 'profit', 'tình trạng', 'status',
-            'tiếp theo', 'next', 'gợi ý', 'suggest', 'tư vấn', 'khuyến nghị',
-            'esport', 'dota', 'lol', 'rồng', 'dragon', 'kèo', 'rate',
-            'phân tích', 'quản lý', 'bảo toàn', 'tối ưu', 'hiệu suất',
-        ];
-
-        const hasOnTopic = onTopicPatterns.some(p => q.includes(p));
-        if (hasOnTopic) return false;
-
-        return offTopicPatterns.some(p => q.includes(p));
+        const off = ['thời tiết', 'weather', 'nấu ăn', 'cooking', 'chính trị', 'politics', 'code', 'lập trình', 'programming', 'phim', 'movie', 'nhạc', 'music', 'hack', 'cheat', 'tình yêu', 'love', 'triết học', 'toán học', 'lịch sử', 'history', 'minecraft', 'fortnite', 'valorant', 'facebook', 'tiktok', 'instagram', 'youtube', 'bitcoin', 'crypto', 'forex', 'chứng khoán', 'ai là', 'who is', 'bạn là ai', 'tên gì'];
+        const on = ['cược', 'bet', 'vốn', 'bankroll', 'thắng', 'thua', 'win', 'loss', 'kelly', 'odds', 'rủi ro', 'risk', 'chiến thuật', 'strategy', 'lệnh', 'chuỗi', 'streak', 'roi', 'ev', 'expected', 'dừng', 'stop', 'mục tiêu', 'target', 'lãi', 'lỗ', 'profit', 'tình trạng', 'status', 'tiếp theo', 'next', 'gợi ý', 'tư vấn', 'khuyến nghị', 'esport', 'dota', 'lol', 'rồng', 'dragon', 'kèo', 'rate', 'phân tích', 'quản lý', 'bảo toàn', 'tối ưu', 'hiệu suất', 'momentum', 'tilt', 'cảm xúc', 'tâm lý', 'xác suất', 'bayesian', 'edge', 'sizing', 'thời gian', 'khung giờ', 'động lực'];
+        if (on.some(p => q.includes(p))) return false;
+        return off.some(p => q.includes(p));
     }
 
-    // ===== UTILS =====
-    function matches(q, keywords) {
-        return keywords.some(k => q.includes(k));
-    }
+    function matches(q, keywords) { return keywords.some(k => q.includes(k)); }
 
     function addBotMessage(html) {
-        const container = document.getElementById('chatMessages');
-        const div = document.createElement('div');
-        div.className = 'chat-msg bot';
-        div.innerHTML = html;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+        const c = document.getElementById('chatMessages');
+        const d = document.createElement('div');
+        d.className = 'chat-msg bot';
+        d.innerHTML = html;
+        c.appendChild(d);
+        c.scrollTop = c.scrollHeight;
     }
 
     function addUserMessage(text) {
-        const container = document.getElementById('chatMessages');
-        const div = document.createElement('div');
-        div.className = 'chat-msg user';
-        div.textContent = text;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+        const c = document.getElementById('chatMessages');
+        const d = document.createElement('div');
+        d.className = 'chat-msg user';
+        d.textContent = text;
+        c.appendChild(d);
+        c.scrollTop = c.scrollHeight;
     }
 
     function showTyping() {
-        const container = document.getElementById('chatMessages');
-        const div = document.createElement('div');
-        div.className = 'chat-typing';
-        div.id = 'typingIndicator';
-        div.innerHTML = '<span></span><span></span><span></span>';
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+        const c = document.getElementById('chatMessages');
+        const d = document.createElement('div');
+        d.className = 'chat-typing';
+        d.id = 'typingIndicator';
+        d.innerHTML = '<span></span><span></span><span></span>';
+        c.appendChild(d);
+        c.scrollTop = c.scrollHeight;
     }
 
     function removeTyping() {
