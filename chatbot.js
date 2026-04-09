@@ -68,8 +68,25 @@
 
     // ===== GET APP STATE =====
     function getAppState() {
-        if (!window.BetWiseApp) return null;
-        return window.BetWiseApp.getState();
+        if (window.BetWiseApp) return window.BetWiseApp.getState();
+
+        // Fallback: read directly from localStorage
+        try {
+            const raw = localStorage.getItem('betwise_data');
+            if (raw) return JSON.parse(raw);
+        } catch (e) { /* ignore */ }
+
+        // Default fresh state
+        return {
+            initialBankroll: 10_000_000,
+            bankroll: 10_000_000,
+            target: 500_000_000,
+            estimatedWR: 70,
+            maxDailyLossPct: 20,
+            history: [],
+            dailyPL: 0,
+            sessionLosses: 0,
+        };
     }
 
     function fmt(n) {
