@@ -107,8 +107,11 @@
         const time = BetEngine.analyzeTimePatterns(s.history);
         const motivation = BetEngine.getMotivation(s.history, s.bankroll, s.initialBankroll);
 
+        // Priority matches (specific topics first, general last)
+        if (matches(q, ['động lực', 'motivat', 'tinh thần', 'cổ vũ', 'cheer'])) return genMotivation(s, stats, motivation);
+        if (matches(q, ['tilt', 'cảm xúc', 'tâm lý', 'bình tĩnh', 'tâm trạng'])) return genTilt(s, tilt, streak);
+        if (matches(q, ['momentum', 'đà', 'trend', 'xu hướng'])) return genMomentum(s, edge, streak);
         if (matches(q, ['tình trạng', 'hiện tại', 'status', 'overview', 'tổng quan'])) return genStatus(s, stats, stage, streak, risk, edge, session, motivation);
-        if (matches(q, ['tiếp theo', 'nên làm gì', 'next', 'bước', 'gợi ý', 'suggest', 'khuyến nghị'])) return genNextStep(s, stats, stage, streak, risk, edge, tilt, motivation);
         if (matches(q, ['rủi ro', 'risk', 'nguy hiểm', 'an toàn', 'stop loss'])) return genRisk(s, stats, stage, streak, risk, tilt, edge);
         if (matches(q, ['chiến thuật', 'strategy', 'cách chơi', 'kelly', 'sizing', 'phương pháp'])) return genStrategy(s, stats, stage, edge, session);
         if (matches(q, ['tỉ lệ thắng', 'win rate', 'wr', 'bayesian', 'xác suất'])) return genWR(s, stats, streak, edge);
@@ -116,10 +119,8 @@
         if (matches(q, ['chuỗi', 'streak', 'liên tiếp', 'thua liên', 'thắng liên'])) return genStreak(s, streak, stage, motivation);
         if (matches(q, ['dừng', 'nghỉ', 'stop', 'break', 'khi nào'])) return genStop(s, stats, risk, streak, tilt);
         if (matches(q, ['mục tiêu', 'target', 'progress', 'bao giờ'])) return genTarget(s, stats, stage);
-        if (matches(q, ['momentum', 'đà', 'trend', 'xu hướng'])) return genMomentum(s, edge, streak);
-        if (matches(q, ['tilt', 'cảm xúc', 'tâm lý', 'bình tĩnh'])) return genTilt(s, tilt, streak);
         if (matches(q, ['thời gian', 'khung giờ', 'time', 'giờ nào'])) return genTime(s, time);
-        if (matches(q, ['động lực', 'motivat', 'tinh thần'])) return genMotivation(s, stats, motivation);
+        if (matches(q, ['tiếp theo', 'nên làm gì', 'next', 'bước', 'gợi ý', 'suggest', 'khuyến nghị'])) return genNextStep(s, stats, stage, streak, risk, edge, tilt, motivation);
         if (matches(q, ['cược', 'bet', 'đặt', 'lệnh', 'vào', 'bao nhiêu', 'nên cược'])) return genNextStep(s, stats, stage, streak, risk, edge, tilt, motivation);
 
         return `Tôi hiểu bạn đang hỏi: "<em>${text}</em>"<br><br>Hãy thử hỏi cụ thể:<br>• "Tình trạng hiện tại?"<br>• "Nên cược bao nhiêu?"<br>• "Phân tích momentum?"<br>• "Tâm lý tôi đang thế nào?"<br>• "Khung giờ nào tốt nhất?"<br>• "Cho tôi động lực!"<br><br>Hoặc bấm nút gợi ý bên dưới 👇`;
