@@ -327,10 +327,62 @@
 
         <!-- Toast -->
         <div class="toast hidden" id="toast"></div>
+
+        <!-- ====== CHATBOT FAB ====== -->
+        <button class="chat-fab" id="chatFab" onclick="toggleChat()" title="Tư vấn BetWise">
+            <svg id="chatFabIcon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+        </button>
+
+        <!-- ====== CHATBOT PANEL ====== -->
+        <div class="chat-panel hidden" id="chatPanel">
+            <div class="chat-header">
+                <div class="chat-header-left">
+                    <div class="chat-avatar">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3fff8b" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                            <path d="M2 17l10 5 10-5" />
+                            <path d="M2 12l10 5 10-5" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="chat-title">BetWise Advisor</div>
+                        <div class="chat-status">Tư vấn chiến thuật cá cược</div>
+                    </div>
+                </div>
+                <button class="icon-btn" onclick="toggleChat()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6" />
+                    </svg>
+                </button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages render here -->
+            </div>
+            <div class="chat-quick-actions" id="chatQuickActions">
+                <button class="chat-quick-btn" onclick="askBot('status')">📊 Tình trạng</button>
+                <button class="chat-quick-btn" onclick="askBot('next')">🎯 Bước tiếp theo</button>
+                <button class="chat-quick-btn" onclick="askBot('risk')">⚠️ Rủi ro</button>
+                <button class="chat-quick-btn" onclick="askBot('strategy')">🧠 Chiến thuật</button>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="chatInput" placeholder="Hỏi về chiến thuật cược..." autocomplete="off"
+                    onkeydown="if(event.key==='Enter')sendChat()">
+                <button class="chat-send-btn" onclick="sendChat()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="engine.js"></script>
     <script src="app.js"></script>
+    <script src="chatbot.js"></script>
 </body>
 
 </html>

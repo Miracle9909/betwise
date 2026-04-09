@@ -599,4 +599,21 @@
         }
     });
 
+    // ===== PERSISTENCE REINFORCEMENT =====
+    // Save on page hide/close
+    window.addEventListener('beforeunload', () => saveState());
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') saveState();
+    });
+    // Periodic auto-save every 30s
+    setInterval(() => saveState(), 30000);
+
+    // ===== EXPOSE FOR CHATBOT =====
+    window.BetWiseApp = {
+        getState: () => ({ ...state }),
+        fmt,
+        fmtFull,
+    };
+
 })();
+
