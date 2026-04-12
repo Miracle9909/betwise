@@ -69,6 +69,7 @@
         if (tab === 'newbet') updateBetForm();
         if (tab === 'history') renderHistory();
         if (tab === 'dashboard') updateDashboard();
+        if (tab === 'esports' && window.EsportsUI) window.EsportsUI.initEsports();
     };
 
     // ===== SETTINGS =====

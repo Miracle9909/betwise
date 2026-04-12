@@ -1378,3 +1378,659 @@ body {
     transform: scale(1.05);
     box-shadow: 0 2px 12px rgba(63, 255, 139, 0.3);
 }
+
+/* ===== ESPORTS TAB ===== */
+
+/* Capital Card */
+.es-capital {
+    padding: 20px;
+}
+
+.es-capital-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.es-capital-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--on-surface-variant);
+    margin-bottom: 4px;
+}
+
+.es-capital-value {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.es-pl-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+
+.es-pl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.es-pl-label {
+    font-size: 10px;
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.es-pl-value {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--on-surface);
+}
+
+.es-win {
+    color: var(--primary) !important;
+}
+
+.es-loss {
+    color: var(--error) !important;
+}
+
+.es-pending-text {
+    color: var(--tertiary) !important;
+}
+
+/* Filter Bar */
+.es-filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 12px 0;
+    padding: 0 4px;
+}
+
+.es-game-filters {
+    display: flex;
+    gap: 6px;
+}
+
+.es-filter-btn {
+    padding: 6px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--outline-variant);
+    background: transparent;
+    color: var(--on-surface-variant);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.es-filter-btn.active {
+    background: var(--primary);
+    color: var(--on-primary);
+    border-color: var(--primary);
+}
+
+.es-filter-btn.dota.active {
+    background: #F04848;
+    border-color: #F04848;
+    color: #fff;
+}
+
+.es-filter-btn.lol.active {
+    background: #C89B3C;
+    border-color: #C89B3C;
+    color: #1a1a2e;
+}
+
+.es-date-badge {
+    font-size: 11px;
+    color: var(--on-surface-variant);
+    padding: 4px 10px;
+    background: var(--surface-container);
+    border-radius: var(--radius-sm);
+}
+
+/* Match Cards */
+.es-matches {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.es-match-card {
+    padding: 16px;
+    transition: all 0.2s;
+}
+
+.es-match-card.finished {
+    opacity: 0.7;
+}
+
+.es-match-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.es-game-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.es-game-tag.dota2 {
+    background: rgba(240, 72, 72, 0.2);
+    color: #F04848;
+}
+
+.es-game-tag.lol {
+    background: rgba(200, 155, 60, 0.2);
+    color: #C89B3C;
+}
+
+.es-match-time {
+    font-size: 12px;
+    color: var(--on-surface-variant);
+}
+
+.es-teams {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.es-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.es-team-logo {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.es-team-name {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.es-vs {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--on-surface-variant);
+    letter-spacing: 2px;
+}
+
+/* Recommendation Badges */
+.es-rec-badge {
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.es-rec-elite {
+    background: linear-gradient(135deg, rgba(63, 255, 139, 0.15), rgba(87, 188, 255, 0.1));
+    border: 1px solid rgba(63, 255, 139, 0.3);
+}
+
+.es-rec-high {
+    background: rgba(63, 255, 139, 0.08);
+    border: 1px solid rgba(63, 255, 139, 0.2);
+}
+
+.es-rec-medium {
+    background: rgba(87, 188, 255, 0.08);
+    border: 1px solid rgba(87, 188, 255, 0.2);
+}
+
+.es-rec-skip {
+    background: rgba(166, 169, 201, 0.08);
+    border: 1px solid var(--outline-variant);
+    color: var(--on-surface-variant);
+}
+
+.es-rec-pending {
+    background: rgba(87, 188, 255, 0.1);
+    border: 1px solid rgba(87, 188, 255, 0.3);
+    color: var(--tertiary);
+}
+
+.es-rec-win {
+    background: rgba(63, 255, 139, 0.1);
+    border: 1px solid rgba(63, 255, 139, 0.3);
+    color: var(--primary);
+}
+
+.es-rec-loss {
+    background: rgba(255, 113, 108, 0.1);
+    border: 1px solid rgba(255, 113, 108, 0.3);
+    color: var(--error);
+}
+
+.es-rec-header {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 4px;
+}
+
+.es-rec-detail {
+    color: var(--on-surface);
+}
+
+.es-rec-reason {
+    font-size: 11px;
+    color: var(--on-surface-variant);
+    margin-top: 4px;
+}
+
+/* Match Actions */
+.es-match-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.es-btn-bet,
+.es-btn-skip,
+.es-btn-detail,
+.es-btn-result {
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.es-btn-bet {
+    background: linear-gradient(135deg, var(--primary-dim), var(--primary));
+    color: var(--on-primary);
+    flex: 1;
+}
+
+.es-btn-bet:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(63, 255, 139, 0.3);
+}
+
+.es-btn-skip {
+    background: var(--surface-high);
+    color: var(--on-surface-variant);
+}
+
+.es-btn-detail {
+    background: var(--surface-container);
+    color: var(--tertiary);
+}
+
+.es-btn-result {
+    background: linear-gradient(135deg, var(--tertiary), #7ecfff);
+    color: #0c112d;
+    flex: 1;
+}
+
+/* Today's Bet History */
+.es-today-history {
+    padding: 16px;
+}
+
+.es-bet-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.es-bet-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1.2fr 0.8fr 0.4fr 0.8fr;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--outline-variant);
+    font-size: 12px;
+}
+
+.es-bet-match {
+    font-weight: 600;
+    color: var(--on-surface);
+}
+
+.es-bet-info {
+    color: var(--on-surface-variant);
+    font-size: 11px;
+}
+
+.es-bet-amount {
+    color: var(--tertiary);
+    text-align: right;
+}
+
+.es-bet-result {
+    text-align: center;
+}
+
+.es-bet-pnl {
+    text-align: right;
+    font-weight: 700;
+}
+
+/* Stats Grid */
+.es-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.es-stat-card {
+    padding: 14px;
+    text-align: center;
+}
+
+.es-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--on-surface-variant);
+    margin-bottom: 4px;
+}
+
+.es-stat-value {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--on-surface);
+}
+
+/* Weekly History */
+.es-weekly {
+    padding: 16px;
+    margin-top: 12px;
+}
+
+.es-weekly-header,
+.es-weekly-row {
+    display: grid;
+    grid-template-columns: 1fr 0.5fr 0.8fr 1fr;
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 12px;
+    align-items: center;
+}
+
+.es-weekly-header {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--on-surface-variant);
+    border-bottom: 1px solid var(--outline-variant);
+}
+
+.es-weekly-row {
+    border-bottom: 1px solid var(--outline-variant);
+}
+
+.es-weekly-row:last-child {
+    border: none;
+}
+
+/* Match Detail Modal */
+.es-match-modal {
+    max-width: 480px;
+    width: 90vw;
+}
+
+.es-modal-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.es-modal-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.es-modal-logo {
+    font-size: 36px;
+}
+
+.es-modal-name {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.es-modal-region {
+    font-size: 11px;
+    color: var(--on-surface-variant);
+}
+
+.es-modal-form {
+    font-size: 12px;
+}
+
+.es-modal-vs {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--on-surface-variant);
+    letter-spacing: 3px;
+}
+
+.es-modal-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--outline-variant);
+}
+
+.es-modal-section:last-child {
+    border: none;
+}
+
+.es-modal-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--on-surface-variant);
+    margin-bottom: 8px;
+}
+
+/* H2H */
+.es-modal-h2h {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.es-h2h-total {
+    color: var(--on-surface-variant);
+    font-size: 11px;
+}
+
+/* Win Probability Bar */
+.es-wp-bar {
+    width: 100%;
+    height: 28px;
+    background: var(--surface-high);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.es-wp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-dim), var(--primary));
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--on-primary);
+    white-space: nowrap;
+    min-width: 80px;
+}
+
+/* Bet Analysis */
+.es-bet-analysis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--outline-variant);
+    font-size: 12px;
+}
+
+.es-bet-analysis:last-child {
+    border: none;
+}
+
+.es-bet-type {
+    font-weight: 700;
+    color: var(--on-surface);
+    width: 100%;
+}
+
+.es-bet-line,
+.es-bet-odds {
+    color: var(--on-surface-variant);
+}
+
+.es-bet-prob {
+    color: var(--tertiary);
+}
+
+.es-bet-pick {
+    font-weight: 600;
+}
+
+/* Recommendation in modal */
+.es-modal-rec {
+    background: rgba(63, 255, 139, 0.05);
+    border-radius: var(--radius-md);
+    padding: 14px !important;
+    border: 1px solid rgba(63, 255, 139, 0.15) !important;
+}
+
+.es-modal-rec.skip {
+    background: rgba(166, 169, 201, 0.05);
+    border-color: var(--outline-variant) !important;
+}
+
+.es-rec-summary {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.es-rec-summary strong {
+    color: var(--primary);
+}
+
+/* Result grid */
+.es-result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+
+.es-result-item {
+    text-align: center;
+    padding: 8px;
+    background: var(--surface-container);
+    border-radius: var(--radius-sm);
+}
+
+.es-result-item span {
+    display: block;
+    font-size: 10px;
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+}
+
+.es-result-item strong {
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--on-surface);
+}
+
+/* Bet Record */
+.es-bet-record {
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-container);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* Modal Actions */
+.es-modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.es-modal-actions .es-btn-bet,
+.es-modal-actions .es-btn-result {
+    padding: 12px;
+    font-size: 14px;
+}
+
+/* Mobile responsive for esports */
+@media (max-width: 420px) {
+    .es-pl-row {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 4px;
+    }
+
+    .es-stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .es-bet-row {
+        grid-template-columns: 1.2fr 1fr 0.6fr 0.4fr 0.7fr;
+        font-size: 11px;
+    }
+
+    .es-capital-value {
+        font-size: 22px;
+    }
+
+    .es-modal-teams {
+        flex-direction: row;
+    }
+
+    .es-modal-logo {
+        font-size: 28px;
+    }
+}
