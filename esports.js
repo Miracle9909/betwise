@@ -1,240 +1,257 @@
 /**
- * BetWise Esports Analyzer v1.0
- * Professional esports betting analysis for Dota 2 & LoL
- * Kelly Criterion betting, h2h analysis, bankroll simulation
+ * BetWise Esports Analyzer v2.0 — Advanced Auto-Simulation Engine
+ * 
+ * Algorithms:
+ * - Elo Rating System for team strength calibration
+ * - Bayesian Win Probability with H2H prior
+ * - Poisson Distribution for O/U predictions
+ * - Monte Carlo Simulation (N=500) for result variance
+ * - Kelly Criterion (Half-Kelly) for optimal bet sizing
+ * - Edge-weighted confidence scoring with decay
  */
 const EsportsAnalyzer = (() => {
     'use strict';
 
-    const STORAGE_KEY = 'betwise_esports';
+    const STORAGE_KEY = 'betwise_esports_v2';
+    const MIN_CONFIDENCE = 0.60;  // Only bet ≥60% probability
+    const MIN_EDGE = 0.06;        // Minimum 6% edge to enter
+    const MONTE_CARLO_N = 500;    // Simulation iterations
 
     // ===== TEAM DATABASE =====
     const TEAMS = {
         dota2: [
-            { id: 'ts', name: 'Team Spirit', tier: 1, region: 'CIS', logo: '🐻', avgKills: 32, avgTowers: 8.2, avgDuration: 38, form: [1, 1, 1, 0, 1] },
-            { id: 'og', name: 'OG', tier: 1, region: 'EU', logo: '🌸', avgKills: 29, avgTowers: 7.8, avgDuration: 36, form: [1, 0, 1, 1, 0] },
-            { id: 'lgd', name: 'PSG.LGD', tier: 1, region: 'CN', logo: '🐉', avgKills: 27, avgTowers: 8.5, avgDuration: 35, form: [1, 1, 0, 1, 1] },
-            { id: 'tl', name: 'Team Liquid', tier: 1, region: 'EU', logo: '💧', avgKills: 30, avgTowers: 7.5, avgDuration: 37, form: [0, 1, 1, 1, 0] },
-            { id: 'eg', name: 'Evil Geniuses', tier: 2, region: 'NA', logo: '⚡', avgKills: 28, avgTowers: 7.0, avgDuration: 39, form: [1, 0, 0, 1, 1] },
-            { id: 'bb', name: 'BetBoom', tier: 1, region: 'CIS', logo: '💥', avgKills: 31, avgTowers: 8.0, avgDuration: 34, form: [1, 1, 1, 1, 0] },
-            { id: 'fg', name: 'Falcons', tier: 1, region: 'MENA', logo: '🦅', avgKills: 33, avgTowers: 8.8, avgDuration: 40, form: [1, 1, 0, 0, 1] },
-            { id: 'gg', name: 'Gaimin Gladiators', tier: 1, region: 'EU', logo: '⚔️', avgKills: 30, avgTowers: 7.6, avgDuration: 36, form: [0, 1, 1, 0, 1] },
-            { id: 'xtm', name: 'Xtreme', tier: 2, region: 'SEA', logo: '🔥', avgKills: 34, avgTowers: 7.2, avgDuration: 41, form: [0, 0, 1, 1, 1] },
-            { id: 'ta', name: 'Tundra', tier: 1, region: 'EU', logo: '❄️', avgKills: 26, avgTowers: 8.4, avgDuration: 33, form: [1, 1, 1, 0, 0] },
+            { id: 'ts', name: 'Team Spirit', elo: 1680, region: 'CIS', logo: '🐻', avgKills: 32, avgTowers: 8.2, avgDuration: 38, form: [1, 1, 1, 0, 1], sdKills: 6, sdTowers: 1.8, sdDur: 5 },
+            { id: 'og', name: 'OG', elo: 1620, region: 'EU', logo: '🌸', avgKills: 29, avgTowers: 7.8, avgDuration: 36, form: [1, 0, 1, 1, 0], sdKills: 7, sdTowers: 2.0, sdDur: 6 },
+            { id: 'lgd', name: 'PSG.LGD', elo: 1660, region: 'CN', logo: '🐉', avgKills: 27, avgTowers: 8.5, avgDuration: 35, form: [1, 1, 0, 1, 1], sdKills: 5, sdTowers: 1.5, sdDur: 4 },
+            { id: 'tl', name: 'Team Liquid', elo: 1640, region: 'EU', logo: '💧', avgKills: 30, avgTowers: 7.5, avgDuration: 37, form: [0, 1, 1, 1, 0], sdKills: 6, sdTowers: 1.9, sdDur: 5 },
+            { id: 'eg', name: 'Evil Geniuses', elo: 1520, region: 'NA', logo: '⚡', avgKills: 28, avgTowers: 7.0, avgDuration: 39, form: [1, 0, 0, 1, 1], sdKills: 8, sdTowers: 2.2, sdDur: 7 },
+            { id: 'bb', name: 'BetBoom', elo: 1670, region: 'CIS', logo: '💥', avgKills: 31, avgTowers: 8.0, avgDuration: 34, form: [1, 1, 1, 1, 0], sdKills: 5, sdTowers: 1.6, sdDur: 4 },
+            { id: 'fg', name: 'Falcons', elo: 1650, region: 'MENA', logo: '🦅', avgKills: 33, avgTowers: 8.8, avgDuration: 40, form: [1, 1, 0, 0, 1], sdKills: 7, sdTowers: 2.1, sdDur: 6 },
+            { id: 'gg', name: 'Gaimin Gladiators', elo: 1635, region: 'EU', logo: '⚔️', avgKills: 30, avgTowers: 7.6, avgDuration: 36, form: [0, 1, 1, 0, 1], sdKills: 6, sdTowers: 1.8, sdDur: 5 },
+            { id: 'xtm', name: 'Xtreme', elo: 1480, region: 'SEA', logo: '🔥', avgKills: 34, avgTowers: 7.2, avgDuration: 41, form: [0, 0, 1, 1, 1], sdKills: 9, sdTowers: 2.5, sdDur: 8 },
+            { id: 'ta', name: 'Tundra', elo: 1655, region: 'EU', logo: '❄️', avgKills: 26, avgTowers: 8.4, avgDuration: 33, form: [1, 1, 1, 0, 0], sdKills: 4, sdTowers: 1.4, sdDur: 3 },
         ],
         lol: [
-            { id: 't1', name: 'T1', tier: 1, region: 'KR', logo: '🔴', avgKills: 18, avgTowers: 9.0, avgDuration: 31, form: [1, 1, 1, 1, 0] },
-            { id: 'geng', name: 'Gen.G', tier: 1, region: 'KR', logo: '🟡', avgKills: 16, avgTowers: 8.8, avgDuration: 30, form: [1, 1, 0, 1, 1] },
-            { id: 'blg', name: 'BLG', tier: 1, region: 'CN', logo: '🟢', avgKills: 20, avgTowers: 8.5, avgDuration: 29, form: [1, 0, 1, 1, 1] },
-            { id: 'hle', name: 'HLE', tier: 1, region: 'KR', logo: '🟠', avgKills: 17, avgTowers: 8.2, avgDuration: 32, form: [0, 1, 1, 0, 1] },
-            { id: 'weibo', name: 'Weibo Gaming', tier: 1, region: 'CN', logo: '🐯', avgKills: 21, avgTowers: 7.8, avgDuration: 28, form: [1, 1, 0, 0, 1] },
-            { id: 'fly', name: 'FlyQuest', tier: 2, region: 'NA', logo: '🦋', avgKills: 15, avgTowers: 7.5, avgDuration: 33, form: [0, 1, 0, 1, 0] },
-            { id: 'fnc', name: 'Fnatic', tier: 2, region: 'EU', logo: '🟧', avgKills: 19, avgTowers: 7.9, avgDuration: 31, form: [1, 0, 1, 0, 1] },
-            { id: 'jdg', name: 'JDG', tier: 1, region: 'CN', logo: '🏆', avgKills: 18, avgTowers: 8.6, avgDuration: 30, form: [1, 1, 1, 0, 0] },
-            { id: 'drx', name: 'DRX', tier: 2, region: 'KR', logo: '🐲', avgKills: 16, avgTowers: 7.4, avgDuration: 34, form: [0, 0, 1, 1, 0] },
-            { id: 'tes', name: 'TES', tier: 1, region: 'CN', logo: '⚡', avgKills: 22, avgTowers: 8.0, avgDuration: 27, form: [1, 1, 0, 1, 0] },
+            { id: 't1', name: 'T1', elo: 1720, region: 'KR', logo: '🔴', avgKills: 18, avgTowers: 9.0, avgDuration: 31, form: [1, 1, 1, 1, 0], sdKills: 4, sdTowers: 1.5, sdDur: 4 },
+            { id: 'geng', name: 'Gen.G', elo: 1700, region: 'KR', logo: '🟡', avgKills: 16, avgTowers: 8.8, avgDuration: 30, form: [1, 1, 0, 1, 1], sdKills: 3, sdTowers: 1.3, sdDur: 3 },
+            { id: 'blg', name: 'BLG', elo: 1690, region: 'CN', logo: '🟢', avgKills: 20, avgTowers: 8.5, avgDuration: 29, form: [1, 0, 1, 1, 1], sdKills: 5, sdTowers: 1.7, sdDur: 4 },
+            { id: 'hle', name: 'HLE', elo: 1650, region: 'KR', logo: '🟠', avgKills: 17, avgTowers: 8.2, avgDuration: 32, form: [0, 1, 1, 0, 1], sdKills: 4, sdTowers: 1.6, sdDur: 5 },
+            { id: 'weibo', name: 'Weibo Gaming', elo: 1640, region: 'CN', logo: '🐯', avgKills: 21, avgTowers: 7.8, avgDuration: 28, form: [1, 1, 0, 0, 1], sdKills: 6, sdTowers: 2.0, sdDur: 5 },
+            { id: 'fly', name: 'FlyQuest', elo: 1500, region: 'NA', logo: '🦋', avgKills: 15, avgTowers: 7.5, avgDuration: 33, form: [0, 1, 0, 1, 0], sdKills: 5, sdTowers: 2.1, sdDur: 6 },
+            { id: 'fnc', name: 'Fnatic', elo: 1540, region: 'EU', logo: '🟧', avgKills: 19, avgTowers: 7.9, avgDuration: 31, form: [1, 0, 1, 0, 1], sdKills: 5, sdTowers: 1.8, sdDur: 5 },
+            { id: 'jdg', name: 'JDG', elo: 1680, region: 'CN', logo: '🏆', avgKills: 18, avgTowers: 8.6, avgDuration: 30, form: [1, 1, 1, 0, 0], sdKills: 4, sdTowers: 1.4, sdDur: 4 },
+            { id: 'drx', name: 'DRX', elo: 1510, region: 'KR', logo: '🐲', avgKills: 16, avgTowers: 7.4, avgDuration: 34, form: [0, 0, 1, 1, 0], sdKills: 5, sdTowers: 2.2, sdDur: 6 },
+            { id: 'tes', name: 'TES', elo: 1670, region: 'CN', logo: '⚡', avgKills: 22, avgTowers: 8.0, avgDuration: 27, form: [1, 1, 0, 1, 0], sdKills: 5, sdTowers: 1.7, sdDur: 4 },
         ]
     };
 
-    // ===== HEAD-TO-HEAD RECORDS =====
+    // ===== HEAD-TO-HEAD CACHE =====
     const H2H = {};
 
-    function getH2HKey(a, b) {
-        return [a, b].sort().join('-');
-    }
-
     function getH2H(teamA, teamB) {
-        const key = getH2HKey(teamA.id, teamB.id);
+        const key = [teamA.id, teamB.id].sort().join('-');
         if (!H2H[key]) {
-            // Generate realistic h2h
-            const diff = (teamA.tier === teamB.tier) ? 0 : (teamA.tier < teamB.tier ? 1 : -1);
-            const base = 5 + Math.floor(Math.random() * 6);
-            const aWins = Math.max(1, base + diff * 2 + Math.floor(Math.random() * 3));
-            const bWins = Math.max(1, base - diff * 2 + Math.floor(Math.random() * 3));
-            H2H[key] = { a: teamA.id, aWins, b: teamB.id, bWins, total: aWins + bWins };
+            const eloDiff = teamA.elo - teamB.elo;
+            const base = 5 + Math.floor(Math.abs(eloDiff) / 40);
+            const aAdv = eloDiff > 0 ? Math.ceil(base * 0.6) : Math.floor(base * 0.4);
+            H2H[key] = { a: teamA.id, aWins: aAdv, b: teamB.id, bWins: base - aAdv, total: base };
         }
-        const rec = H2H[key];
-        return rec.a === teamA.id
-            ? { wins: rec.aWins, losses: rec.bWins, total: rec.total }
-            : { wins: rec.bWins, losses: rec.aWins, total: rec.total };
+        const r = H2H[key];
+        return r.a === teamA.id
+            ? { wins: r.aWins, losses: r.bWins, total: r.total }
+            : { wins: r.bWins, losses: r.aWins, total: r.total };
     }
 
-    // ===== PROBABILITY ENGINE =====
+    // ===== PROBABILITY ENGINE — Elo + Bayesian + Form =====
 
-    function teamStrength(team) {
-        const formScore = team.form.reduce((s, v, i) => s + v * (i + 1), 0) / 15; // Recent = more weight
-        const tierScore = team.tier === 1 ? 0.7 : 0.4;
-        return tierScore * 0.4 + formScore * 0.6;
+    /** Elo-based expected win probability */
+    function eloWinProb(eloA, eloB) {
+        return 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
     }
 
+    /** Exponentially-weighted form score (recent matches matter more) */
+    function formScore(form) {
+        const weights = [1, 2, 3, 4, 5];
+        let sum = 0, wSum = 0;
+        for (let i = 0; i < form.length; i++) {
+            sum += form[i] * weights[i];
+            wSum += weights[i];
+        }
+        return sum / wSum;
+    }
+
+    /** Combined Bayesian win probability: Elo prior + H2H evidence + Form momentum */
     function winProbability(teamA, teamB) {
-        const sA = teamStrength(teamA);
-        const sB = teamStrength(teamB);
+        const eloPrior = eloWinProb(teamA.elo, teamB.elo);
         const h2h = getH2H(teamA, teamB);
-        const h2hFactor = h2h.wins / h2h.total;
+        const h2hLikelihood = h2h.wins / h2h.total;
+        const formA = formScore(teamA.form);
+        const formB = formScore(teamB.form);
+        const formFactor = formA / (formA + formB + 0.001);
 
-        // Bayesian combination: prior (strength) + evidence (h2h)
-        const prior = sA / (sA + sB);
-        const weight = Math.min(h2h.total / 20, 0.5); // More games = more weight
-        return prior * (1 - weight) + h2hFactor * weight;
+        // Bayesian posterior: weighted combination
+        const h2hWeight = Math.min(h2h.total / 15, 0.35);
+        const formWeight = 0.20;
+        const eloWeight = 1 - h2hWeight - formWeight;
+
+        const posterior = eloPrior * eloWeight + h2hLikelihood * h2hWeight + formFactor * formWeight;
+        return Math.max(0.10, Math.min(0.90, posterior));
     }
 
-    function predictKills(teamA, teamB) {
-        const total = (teamA.avgKills + teamB.avgKills) / 2;
-        const variance = total * 0.15;
-        return { expected: total, low: total - variance, high: total + variance };
+    // ===== POISSON DISTRIBUTION for O/U =====
+
+    function poissonPMF(k, lambda) {
+        let result = Math.exp(-lambda);
+        for (let i = 1; i <= k; i++) {
+            result *= lambda / i;
+        }
+        return result;
     }
 
-    function predictTowers(teamA, teamB) {
-        const total = teamA.avgTowers + teamB.avgTowers;
-        const variance = total * 0.12;
-        return { expected: total, low: total - variance, high: total + variance };
+    /** P(X > line) using Poisson CDF */
+    function poissonOverProb(lambda, line) {
+        let cdfUnder = 0;
+        const intLine = Math.floor(line);
+        for (let k = 0; k <= intLine; k++) {
+            cdfUnder += poissonPMF(k, lambda);
+        }
+        return 1 - cdfUnder;
     }
 
-    function predictDuration(teamA, teamB) {
-        const avg = (teamA.avgDuration + teamB.avgDuration) / 2;
-        const variance = avg * 0.1;
-        return { expected: avg, low: avg - variance, high: avg + variance };
+    // ===== MONTE CARLO SIMULATION =====
+
+    function gaussianRandom(mean, sd) {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return mean + sd * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
     }
 
-    // ===== BET ANALYSIS — Pro-level =====
+    function monteCarloSimulate(teamA, teamB, game, n = MONTE_CARLO_N) {
+        const results = { kills: [], towers: [], duration: [] };
+        const wp = winProbability(teamA, teamB);
+
+        for (let i = 0; i < n; i++) {
+            // Winner influences stats
+            const aWins = Math.random() < wp;
+            const killMultiplier = aWins ? 1.05 : 0.95;
+            const towerMultiplier = aWins ? 1.08 : 0.92;
+
+            const avgK = (teamA.avgKills + teamB.avgKills) / 2;
+            const sdK = Math.sqrt((teamA.sdKills ** 2 + teamB.sdKills ** 2) / 2);
+            const simKills = Math.max(8, Math.round(gaussianRandom(avgK * killMultiplier, sdK)));
+
+            const avgT = teamA.avgTowers + teamB.avgTowers;
+            const sdT = Math.sqrt(teamA.sdTowers ** 2 + teamB.sdTowers ** 2);
+            const simTowers = Math.max(3, Math.round(gaussianRandom(avgT * towerMultiplier, sdT)));
+
+            const avgD = (teamA.avgDuration + teamB.avgDuration) / 2;
+            const sdD = Math.sqrt((teamA.sdDur ** 2 + teamB.sdDur ** 2) / 2);
+            const simDur = Math.max(15, Math.round(gaussianRandom(avgD, sdD)));
+
+            results.kills.push(game === 'dota2' ? simKills * 2 : simKills);
+            results.towers.push(simTowers);
+            results.duration.push(simDur);
+        }
+
+        return {
+            kills: { mean: mean(results.kills), sd: stdDev(results.kills), samples: results.kills },
+            towers: { mean: mean(results.towers), sd: stdDev(results.towers), samples: results.towers },
+            duration: { mean: mean(results.duration), sd: stdDev(results.duration), samples: results.duration },
+        };
+    }
+
+    function mean(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length; }
+    function stdDev(arr) {
+        const m = mean(arr);
+        return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length);
+    }
+
+    // ===== BET ANALYSIS with Monte Carlo + Poisson =====
 
     function analyzeBetTypes(teamA, teamB, game) {
-        const wp = winProbability(teamA, teamB);
-        const kills = predictKills(teamA, teamB);
-        const towers = predictTowers(teamA, teamB);
-        const duration = predictDuration(teamA, teamB);
-
+        const mc = monteCarloSimulate(teamA, teamB, game);
         const bets = [];
 
-        // Kill Over/Under
-        const killLine = game === 'dota2'
-            ? Math.round(kills.expected * 2) + 0.5  // Dota total kills both teams
-            : Math.round(kills.expected) + 0.5;
-
-        const killOverProb = 0.5 + (kills.expected - killLine) / (kills.high - kills.low) * 0.3;
-        const killUnderProb = 1 - killOverProb;
+        // --- Kill O/U ---
+        const killLine = Math.round(mc.kills.mean) + 0.5;
+        const killOverProb = poissonOverProb(mc.kills.mean, killLine);
         const killOdds = 1.75 + Math.random() * 0.25;
+        bets.push(buildBet('kill_ou', 'Tài/Xỉu Mạng', killLine, killOverProb, killOdds));
 
-        bets.push({
-            type: 'kill_ou',
-            label: game === 'dota2' ? 'Tài/Xỉu Mạng' : 'Tài/Xỉu Mạng',
-            line: killLine,
-            overProb: Math.min(0.85, Math.max(0.15, killOverProb)),
-            underProb: Math.min(0.85, Math.max(0.15, killUnderProb)),
-            odds: killOdds,
-            pick: killOverProb > 0.55 ? 'over' : killUnderProb > 0.55 ? 'under' : null,
-            pickProb: killOverProb > 0.55 ? killOverProb : killUnderProb > 0.55 ? killUnderProb : Math.max(killOverProb, killUnderProb),
-        });
+        // --- Tower O/U ---
+        const towerLine = Math.round(mc.towers.mean) + 0.5;
+        const towerOverProb = poissonOverProb(mc.towers.mean, towerLine);
+        const towerOdds = 1.80 + Math.random() * 0.20;
+        bets.push(buildBet('tower_ou', 'Tài/Xỉu Trụ', towerLine, towerOverProb, towerOdds));
 
-        // Tower Over/Under
-        const towerLine = Math.round(towers.expected) + 0.5;
-        const towerOverProb = 0.5 + (towers.expected - towerLine) / (towers.high - towers.low) * 0.3;
-        const towerUnderProb = 1 - towerOverProb;
-        const towerOdds = 1.80 + Math.random() * 0.2;
-
-        bets.push({
-            type: 'tower_ou',
-            label: 'Tài/Xỉu Trụ',
-            line: towerLine,
-            overProb: Math.min(0.85, Math.max(0.15, towerOverProb)),
-            underProb: Math.min(0.85, Math.max(0.15, towerUnderProb)),
-            odds: towerOdds,
-            pick: towerOverProb > 0.55 ? 'over' : towerUnderProb > 0.55 ? 'under' : null,
-            pickProb: towerOverProb > 0.55 ? towerOverProb : towerUnderProb > 0.55 ? towerUnderProb : Math.max(towerOverProb, towerUnderProb),
-        });
-
-        // Time Over/Under
-        const timeLine = Math.round(duration.expected) + 0.5;
-        const timeOverProb = 0.5 + (duration.expected - timeLine) / (duration.high - duration.low) * 0.35;
-        const timeUnderProb = 1 - timeOverProb;
+        // --- Time O/U ---
+        const timeLine = Math.round(mc.duration.mean) + 0.5;
+        // For time, use MC simulation directly (not Poisson — duration is Gaussian)
+        const timeOverCount = mc.duration.samples.filter(d => d > timeLine).length;
+        const timeOverProb = timeOverCount / mc.duration.samples.length;
         const timeOdds = 1.82 + Math.random() * 0.18;
+        bets.push(buildBet('time_ou', 'Tài/Xỉu Thời gian', timeLine, timeOverProb, timeOdds));
 
-        bets.push({
-            type: 'time_ou',
-            label: 'Tài/Xỉu Thời gian',
-            line: timeLine,
-            overProb: Math.min(0.85, Math.max(0.15, timeOverProb)),
-            underProb: Math.min(0.85, Math.max(0.15, timeUnderProb)),
-            odds: timeOdds,
-            pick: timeOverProb > 0.55 ? 'over' : timeUnderProb > 0.55 ? 'under' : null,
-            pickProb: timeOverProb > 0.55 ? timeOverProb : timeUnderProb > 0.55 ? timeUnderProb : Math.max(timeOverProb, timeUnderProb),
-        });
-
-        return bets;
+        return { bets, mc };
     }
 
+    function buildBet(type, label, line, overProb, odds) {
+        const op = Math.max(0.10, Math.min(0.90, overProb));
+        const up = 1 - op;
+        const pick = op > 0.55 ? 'over' : up > 0.55 ? 'under' : null;
+        const pickProb = pick === 'over' ? op : pick === 'under' ? up : Math.max(op, up);
+        return { type, label, line, overProb: op, underProb: up, odds, pick, pickProb };
+    }
+
+    // ===== RECOMMENDATION ENGINE — Kelly Criterion =====
+
     function generateRecommendation(betAnalysis, bankroll) {
-        // Find best bet — highest edge
-        let bestBet = null;
-        let bestEdge = -Infinity;
+        let bestBet = null, bestEdge = -Infinity;
 
         for (const bet of betAnalysis) {
             if (!bet.pick) continue;
-            const prob = bet.pickProb;
-            const ev = prob * (bet.odds - 1) - (1 - prob);
-            if (ev > bestEdge && prob >= 0.58) {  // PRO: Only bet if ≥58% confidence
-                bestEdge = ev;
+            const p = bet.pickProb;
+            if (p < MIN_CONFIDENCE) continue;
+            const edge = p * (bet.odds - 1) - (1 - p);
+            if (edge > bestEdge && edge >= MIN_EDGE) {
+                bestEdge = edge;
                 bestBet = bet;
             }
         }
 
-        if (!bestBet || bestEdge < 0.05) {
-            return { action: 'SKIP', reason: 'Không có kèo có lợi thế rõ ràng (edge < 5%)', bestBet: null, amount: 0 };
+        if (!bestBet) {
+            return { action: 'SKIP', reason: `Không đủ edge (cần ≥${(MIN_EDGE * 100).toFixed(0)}% và P≥${(MIN_CONFIDENCE * 100).toFixed(0)}%)`, bestBet: null, amount: 0, probability: 0, edge: 0 };
         }
 
-        // Kelly sizing
+        // Half-Kelly sizing
         const b = bestBet.odds - 1;
         const p = bestBet.pickProb;
-        const q = 1 - p;
-        const kellyFull = (b * p - q) / b;
-        const kellyHalf = kellyFull / 2;  // Half-Kelly for safety
+        const kellyFull = (b * p - (1 - p)) / b;
+        const kellyHalf = kellyFull / 2;
 
-        // Confidence tier
+        // Confidence tiers
         let confTier, sizing;
-        if (p >= 0.72) {
-            confTier = 'elite';
-            sizing = Math.min(kellyHalf * 1.2, 0.20);
-        } else if (p >= 0.65) {
-            confTier = 'high';
-            sizing = Math.min(kellyHalf, 0.15);
-        } else if (p >= 0.58) {
-            confTier = 'medium';
-            sizing = Math.min(kellyHalf * 0.7, 0.10);
-        } else {
-            confTier = 'skip';
-            sizing = 0;
-        }
+        if (p >= 0.75) { confTier = 'elite'; sizing = Math.min(kellyHalf * 1.3, 0.22); }
+        else if (p >= 0.68) { confTier = 'high'; sizing = Math.min(kellyHalf, 0.16); }
+        else if (p >= 0.60) { confTier = 'medium'; sizing = Math.min(kellyHalf * 0.7, 0.10); }
+        else { confTier = 'skip'; sizing = 0; }
 
-        const amount = Math.round(bankroll * sizing / 10000) * 10000; // Round to 10k
+        const amount = Math.round(bankroll * sizing / 10000) * 10000;
         if (amount < 50000) {
-            return { action: 'SKIP', reason: 'Mức cược quá nhỏ, chờ kèo tốt hơn', bestBet, amount: 0 };
+            return { action: 'SKIP', reason: 'Mức cược quá nhỏ so với vốn', bestBet, amount: 0, probability: p, edge: bestEdge };
         }
 
         const pickLabel = bestBet.pick === 'over' ? `Tài (>${bestBet.line})` : `Xỉu (<${bestBet.line})`;
+        const edgePct = (bestEdge * 100).toFixed(1);
+        const probPct = (p * 100).toFixed(0);
 
         return {
-            action: 'BET',
-            bestBet,
-            betType: bestBet.type,
-            betLabel: bestBet.label,
-            pick: bestBet.pick,
-            pickLabel,
-            probability: bestBet.pickProb,
-            edge: bestEdge,
-            kelly: kellyHalf,
-            confTier,
-            amount,
-            odds: bestBet.odds,
-            reason: buildReason(bestBet, bestEdge, confTier),
+            action: 'BET', bestBet, betType: bestBet.type, betLabel: bestBet.label,
+            pick: bestBet.pick, pickLabel, probability: p, edge: bestEdge,
+            kelly: kellyHalf, confTier, amount, odds: bestBet.odds,
+            reason: `${confTier === 'elite' ? '🔥' : confTier === 'high' ? '✅' : '⚡'} P=${probPct}% Edge=+${edgePct}% Kelly=${(kellyHalf * 100).toFixed(1)}%`,
         };
-    }
-
-    function buildReason(bet, edge, tier) {
-        const edgePct = (edge * 100).toFixed(1);
-        const probPct = (bet.pickProb * 100).toFixed(0);
-        const tierMap = { elite: '🔥 Edge cực mạnh', high: '✅ Edge tốt', medium: '⚡ Edge vừa' };
-        return `${tierMap[tier]} — Xác suất ${probPct}%, Edge +${edgePct}%, Odds ${bet.odds.toFixed(2)}`;
     }
 
     // ===== DAILY MATCH GENERATION =====
@@ -242,89 +259,67 @@ const EsportsAnalyzer = (() => {
     function generateDailyMatches(dateStr) {
         const seed = hashCode(dateStr);
         const rng = seededRandom(seed);
-
         const matches = [];
-        const usedDota = new Set();
-        const usedLol = new Set();
+        const usedDota = new Set(), usedLol = new Set();
 
-        // Generate 4-6 Dota 2 matches
         const dotaCount = 4 + Math.floor(rng() * 3);
         for (let i = 0; i < dotaCount; i++) {
-            const [a, b] = pickTwoTeams(TEAMS.dota2, usedDota, rng);
-            if (!a || !b) break;
+            const [a, b] = pickTwo(TEAMS.dota2, usedDota, rng);
+            if (!a) break;
             const time = `${14 + Math.floor(rng() * 8)}:${rng() > 0.5 ? '00' : '30'}`;
-            const bets = analyzeBetTypes(a, b, 'dota2');
-            matches.push({
-                id: `d2_${dateStr}_${i}`,
-                game: 'dota2',
-                teamA: a,
-                teamB: b,
-                time,
-                bets,
-                status: 'upcoming', // upcoming | live | finished
-                result: null,
-            });
+            const { bets, mc } = analyzeBetTypes(a, b, 'dota2');
+            const rec = generateRecommendation(bets, 10000000);
+            matches.push({ id: `d2_${dateStr}_${i}`, game: 'dota2', teamA: a, teamB: b, time, bets, mc, rec, status: 'upcoming', result: null });
         }
 
-        // Generate 3-5 LoL matches
         const lolCount = 3 + Math.floor(rng() * 3);
         for (let i = 0; i < lolCount; i++) {
-            const [a, b] = pickTwoTeams(TEAMS.lol, usedLol, rng);
-            if (!a || !b) break;
+            const [a, b] = pickTwo(TEAMS.lol, usedLol, rng);
+            if (!a) break;
             const time = `${15 + Math.floor(rng() * 7)}:${rng() > 0.5 ? '00' : '30'}`;
-            const bets = analyzeBetTypes(a, b, 'lol');
-            matches.push({
-                id: `lol_${dateStr}_${i}`,
-                game: 'lol',
-                teamA: a,
-                teamB: b,
-                time,
-                bets,
-                status: 'upcoming',
-                result: null,
-            });
+            const { bets, mc } = analyzeBetTypes(a, b, 'lol');
+            const rec = generateRecommendation(bets, 10000000);
+            matches.push({ id: `lol_${dateStr}_${i}`, game: 'lol', teamA: a, teamB: b, time, bets, mc, rec, status: 'upcoming', result: null });
         }
 
-        // Sort by time
         matches.sort((a, b) => a.time.localeCompare(b.time));
         return matches;
     }
 
-    function pickTwoTeams(pool, used, rng) {
-        const available = pool.filter(t => !used.has(t.id));
-        if (available.length < 2) return [null, null];
-        const shuffled = available.sort(() => rng() - 0.5);
-        used.add(shuffled[0].id);
-        used.add(shuffled[1].id);
-        return [shuffled[0], shuffled[1]];
+    function pickTwo(pool, used, rng) {
+        const avail = pool.filter(t => !used.has(t.id));
+        if (avail.length < 2) return [null, null];
+        const s = avail.sort(() => rng() - 0.5);
+        used.add(s[0].id); used.add(s[1].id);
+        return [s[0], s[1]];
     }
 
-    function hashCode(str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = ((hash << 5) - hash) + str.charCodeAt(i);
-            hash |= 0;
-        }
-        return Math.abs(hash);
-    }
+    // ===== MATCH RESULT SIMULATION (Monte Carlo based) =====
 
-    function seededRandom(seed) {
-        return () => {
-            seed = (seed * 16807 + 0) % 2147483647;
-            return seed / 2147483647;
+    function simulateResult(match) {
+        const mc = monteCarloSimulate(match.teamA, match.teamB, match.game, 1);
+        return {
+            kills: mc.kills.samples[0],
+            towers: mc.towers.samples[0],
+            duration: mc.duration.samples[0],
         };
     }
 
-    // ===== STATE MANAGEMENT =====
+    function resolveBet(bet, result) {
+        let actual;
+        switch (bet.betType) {
+            case 'kill_ou': actual = result.kills; break;
+            case 'tower_ou': actual = result.towers; break;
+            case 'time_ou': actual = result.duration; break;
+        }
+        const won = bet.pick === 'over' ? actual > bet.line : actual < bet.line;
+        return { won, pnl: won ? Math.round(bet.amount * (bet.odds - 1)) : -bet.amount, actual };
+    }
+
+    // ===== STATE =====
 
     function defaultState() {
-        return {
-            capital: 10000000,      // 10M VND
-            initialCapital: 10000000,
-            bets: [],               // { matchId, betType, pick, amount, odds, result, pnl, timestamp }
-            dailyMatches: {},       // { 'YYYY-MM-DD': [...matches] }
-            currentDate: todayStr(),
-        };
+        return { capital: 10000000, initialCapital: 10000000, bets: [], dailyMatches: {}, currentDate: todayStr(), autoRunComplete: false };
     }
 
     function todayStr() {
@@ -336,153 +331,69 @@ const EsportsAnalyzer = (() => {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) return defaultState();
-            const s = JSON.parse(raw);
-            // Ensure all fields exist
-            return { ...defaultState(), ...s };
-        } catch {
-            return defaultState();
-        }
+            return { ...defaultState(), ...JSON.parse(raw) };
+        } catch { return defaultState(); }
     }
 
-    function saveState(state) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
-    function resetState() {
-        localStorage.removeItem(STORAGE_KEY);
-        return defaultState();
-    }
-
-    // ===== MATCH RESULT SIMULATION =====
-
-    function simulateResult(match) {
-        const kills = predictKills(match.teamA, match.teamB);
-        const towers = predictTowers(match.teamA, match.teamB);
-        const duration = predictDuration(match.teamA, match.teamB);
-
-        // Add realistic variance
-        const actualKills = Math.round(kills.expected + (Math.random() - 0.5) * (kills.high - kills.low) * 1.5);
-        const actualTowers = Math.round(towers.expected + (Math.random() - 0.5) * (towers.high - towers.low) * 1.5);
-        const actualDuration = Math.round(duration.expected + (Math.random() - 0.5) * (duration.high - duration.low) * 1.5);
-
-        return {
-            kills: Math.max(10, actualKills),
-            towers: Math.max(4, actualTowers),
-            duration: Math.max(15, actualDuration),
-        };
-    }
-
-    function resolveBet(bet, matchResult) {
-        let won = false;
-        switch (bet.betType) {
-            case 'kill_ou':
-                won = bet.pick === 'over'
-                    ? matchResult.kills > bet.line
-                    : matchResult.kills < bet.line;
-                break;
-            case 'tower_ou':
-                won = bet.pick === 'over'
-                    ? matchResult.towers > bet.line
-                    : matchResult.towers < bet.line;
-                break;
-            case 'time_ou':
-                won = bet.pick === 'over'
-                    ? matchResult.duration > bet.line
-                    : matchResult.duration < bet.line;
-                break;
-        }
-        return {
-            won,
-            pnl: won ? Math.round(bet.amount * (bet.odds - 1)) : -bet.amount,
-        };
-    }
+    function saveState(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function resetState() { localStorage.removeItem(STORAGE_KEY); return defaultState(); }
 
     // ===== STATISTICS =====
 
     function calcDailyPL(bets, dateStr) {
-        return bets
-            .filter(b => b.timestamp && b.timestamp.startsWith(dateStr) && b.result !== null)
-            .reduce((sum, b) => sum + (b.pnl || 0), 0);
+        return bets.filter(b => b.timestamp?.startsWith(dateStr) && b.result !== null).reduce((s, b) => s + (b.pnl || 0), 0);
     }
 
     function calcWeeklyPL(bets) {
-        const now = new Date();
-        const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-        return bets
-            .filter(b => b.result !== null && new Date(b.timestamp) >= weekAgo)
-            .reduce((sum, b) => sum + (b.pnl || 0), 0);
+        const cutoff = new Date(Date.now() - 7 * 86400000);
+        return bets.filter(b => b.result !== null && new Date(b.timestamp) >= cutoff).reduce((s, b) => s + (b.pnl || 0), 0);
     }
 
     function calcWinRate(bets) {
-        const resolved = bets.filter(b => b.result !== null);
-        if (resolved.length === 0) return 0;
-        const wins = resolved.filter(b => b.result === 'win').length;
-        return wins / resolved.length;
+        const r = bets.filter(b => b.result !== null);
+        return r.length === 0 ? 0 : r.filter(b => b.result === 'win').length / r.length;
     }
 
     function calcStats(bets, capital, initialCapital) {
-        const resolved = bets.filter(b => b.result !== null);
-        const wins = resolved.filter(b => b.result === 'win').length;
-        const losses = resolved.filter(b => b.result === 'loss').length;
-        const totalPL = resolved.reduce((s, b) => s + (b.pnl || 0), 0);
+        const r = bets.filter(b => b.result !== null);
+        const wins = r.filter(b => b.result === 'win').length;
+        const totalPL = r.reduce((s, b) => s + (b.pnl || 0), 0);
         const roi = initialCapital > 0 ? (totalPL / initialCapital) * 100 : 0;
-        const avgBet = resolved.length > 0 ? resolved.reduce((s, b) => s + b.amount, 0) / resolved.length : 0;
-
-        return {
-            total: resolved.length,
-            wins,
-            losses,
-            winRate: resolved.length > 0 ? (wins / resolved.length * 100).toFixed(1) : '0',
-            totalPL,
-            roi: roi.toFixed(1),
-            avgBet,
-            streak: calcStreak(resolved),
-        };
-    }
-
-    function calcStreak(bets) {
-        if (bets.length === 0) return { current: 0, type: 'none' };
-        let count = 1;
-        const last = bets[bets.length - 1].result;
-        for (let i = bets.length - 2; i >= 0; i--) {
-            if (bets[i].result === last) count++;
-            else break;
-        }
-        return { current: count, type: last };
+        return { total: r.length, wins, losses: r.length - wins, winRate: r.length > 0 ? (wins / r.length * 100).toFixed(1) : '0', totalPL, roi: roi.toFixed(1) };
     }
 
     function getDailyHistory(bets) {
         const days = {};
-        for (const bet of bets) {
-            if (!bet.timestamp || bet.result === null) continue;
-            const day = bet.timestamp.slice(0, 10);
-            if (!days[day]) days[day] = { date: day, bets: 0, wins: 0, pnl: 0 };
-            days[day].bets++;
-            if (bet.result === 'win') days[day].wins++;
-            days[day].pnl += bet.pnl || 0;
+        for (const b of bets) {
+            if (!b.timestamp || b.result === null) continue;
+            const d = b.timestamp.slice(0, 10);
+            if (!days[d]) days[d] = { date: d, bets: 0, wins: 0, pnl: 0 };
+            days[d].bets++;
+            if (b.result === 'win') days[d].wins++;
+            days[d].pnl += b.pnl || 0;
         }
         return Object.values(days).sort((a, b) => b.date.localeCompare(a.date));
     }
 
-    // ===== FORMAT HELPERS =====
-
+    // ===== FORMAT =====
     function fmt(n) {
         if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B';
         if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M';
         if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + 'k';
         return n.toString();
     }
+    function fmtFull(n) { return new Intl.NumberFormat('vi-VN').format(n); }
 
-    function fmtFull(n) {
-        return new Intl.NumberFormat('vi-VN').format(n);
-    }
+    // ===== UTILS =====
+    function hashCode(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; } return Math.abs(h); }
+    function seededRandom(s) { return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; }
 
-    // ===== PUBLIC API =====
     return {
         TEAMS, loadState, saveState, resetState, defaultState,
         generateDailyMatches, generateRecommendation, analyzeBetTypes,
         winProbability, simulateResult, resolveBet,
         calcDailyPL, calcWeeklyPL, calcWinRate, calcStats, getDailyHistory,
-        todayStr, fmt, fmtFull, getH2H, teamStrength,
+        todayStr, fmt, fmtFull, getH2H, formScore, eloWinProb,
+        MIN_CONFIDENCE, MIN_EDGE,
     };
 })();

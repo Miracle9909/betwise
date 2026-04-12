@@ -334,20 +334,17 @@
                         <span class="es-pl-label">Win Rate</span>
                         <span class="es-pl-value" id="esWinRate">—</span>
                     </div>
+                    <div class="es-pl-item">
+                        <span class="es-pl-label">Streak</span>
+                        <span class="es-pl-value" id="esStreak">—</span>
+                    </div>
                 </div>
             </section>
 
-            <!-- Game Filter -->
-            <div class="es-filter-bar">
-                <div class="es-game-filters">
-                    <button class="es-filter-btn active" data-game="all" onclick="filterEsGame('all')">Tất cả</button>
-                    <button class="es-filter-btn dota" data-game="dota2" onclick="filterEsGame('dota2')">Dota 2</button>
-                    <button class="es-filter-btn lol" data-game="lol" onclick="filterEsGame('lol')">LoL</button>
-                </div>
-                <div class="es-date-badge" id="esDateBadge">Hôm nay</div>
-            </div>
+            <!-- Auto-Play Button -->
+            <button class="es-auto-btn ready" id="esAutoBtn">▶ Bắt đầu thi đấu</button>
 
-            <!-- Match List -->
+            <!-- Match List (unified — all games) -->
             <section class="es-matches" id="esMatchList">
                 <div class="empty-state">Đang tải trận đấu...</div>
             </section>
