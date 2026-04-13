@@ -170,46 +170,23 @@
         }
     }
 
-    // ===== MATCH LIST =====
-    function renderMatchList() {
-        const container = document.getElementById('esMatchList');
-        if (!container) return;
-        const isToday = esState.viewingDate === EsportsAnalyzer.todayStr();
+    function renderMatchCard(match, isToday) {
+        const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
+        const bet = esState.bets.find(b => b.matchId === match.id);
+        const isFinished = match.status === 'finished' || bet?.result != null;
+        const gameTag = match.game === 'dota2' ? 'dota2' : 'lol';
+        const gameName = match.game === 'dota2' ? 'DOTA 2' : 'LOL';
+        const isLive = match.status === 'live';
+        const bo = match.bestOf || 1;
+        const hasSeriesScore = match.scoreA != null && match.scoreB != null;
+        const seriesFinished = isFinished && hasSeriesScore;
+        const aWon = seriesFinished && match.scoreA > match.scoreB;
+        const bWon = seriesFinished && match.scoreB > match.scoreA;
+        const isSelected = selectedMatches.has(match.id);
+        const isUpcoming = match.status === 'upcoming';
+        const wp = EsportsAnalyzer.winProbability(match.teamA, match.teamB);
 
-        if (currentMatches.length === 0) {
-            container.innerHTML = `<div class="empty-state">
-                <div class="es-empty-icon">📭</div>
-                <p>Không có trận hợp lệ ngày ${EsportsAnalyzer.formatDate(esState.viewingDate)}</p>
-                <p style="opacity:0.5;font-size:12px;">Top 30 teams + Tier 1 leagues (LCK, LPL, LEC, DPC, PGL...)</p>
-            </div>`;
-            return;
-        }
-
-        // Select-all controls
-        const selectControls = isToday ? `<div class="es-select-controls">
-            <button class="es-select-btn" onclick="selectAllMatches()">☑ Chọn tất cả</button>
-            <button class="es-select-btn" onclick="deselectAllMatches()">☐ Bỏ chọn</button>
-            <span class="es-selected-count">${selectedMatches.size}/${currentMatches.filter(m => m.status === 'upcoming').length} đã chọn</span>
-        </div>` : '';
-
-        container.innerHTML = selectControls + currentMatches.map(match => {
-            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
-            const bet = esState.bets.find(b => b.matchId === match.id);
-            const isFinished = match.status === 'finished' || bet?.result != null;
-            const gameTag = match.game === 'dota2' ? 'dota2' : 'lol';
-            const gameName = match.game === 'dota2' ? 'DOTA 2' : 'LOL';
-            const isLive = match.status === 'live';
-            const hasRealResult = match.result && match.isReal;
-            const bo = match.bestOf || 1;
-            const hasSeriesScore = match.scoreA != null && match.scoreB != null;
-            const seriesFinished = isFinished && hasSeriesScore;
-            const aWon = seriesFinished && match.scoreA > match.scoreB;
-            const bWon = seriesFinished && match.scoreB > match.scoreA;
-            const isSelected = selectedMatches.has(match.id);
-            const isUpcoming = match.status === 'upcoming';
-            const wp = EsportsAnalyzer.winProbability(match.teamA, match.teamB);
-
-            return `
+        return `
                 <div class="es-match-card glass-card ${isFinished ? 'finished' : ''} ${isLive ? 'live' : ''} ${isSelected ? 'selected' : ''}" 
                      data-match-id="${match.id}">
                     <div class="es-match-header">
@@ -236,9 +213,9 @@
                         </div>
                         <div class="es-vs-block">
                             ${hasSeriesScore
-                    ? `<div class="es-series-score"><span class="es-ss ${aWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreA}</span><span class="es-ss-sep">:</span><span class="es-ss ${bWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreB}</span></div>`
-                    : `<div class="es-vs">${isLive ? '🔴' : isFinished ? '✅' : 'VS'}</div>`
-                }
+                ? `<div class="es-series-score"><span class="es-ss ${aWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreA}</span><span class="es-ss-sep">:</span><span class="es-ss ${bWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreB}</span></div>`
+                : `<div class="es-vs">${isLive ? '🔴' : isFinished ? '✅' : 'VS'}</div>`
+            }
                             ${isFinished && match.result ? `<div class="es-score-final">${match.result.kills}K │ ${match.result.towers}T │ ${match.result.duration}p${match.result.dragons != null ? ' │ ' + match.result.dragons + 'D' : ''}</div>` : ''}
                             ${isLive && !hasSeriesScore ? '<div class="es-live-dot">LIVE</div>' : ''}
                         </div>
@@ -252,8 +229,98 @@
                     ${isLive && bo > 1 ? `<div class="es-series-live-bar">🔴 Đang thi đấu Game ${(match.scoreA || 0) + (match.scoreB || 0) + 1} / BO${bo}</div>` : ''}
                     ${renderMatchBadge(rec, bet, isToday)}
                 </div>`;
-        }).join('');
     }
+
+    function renderMatchList() {
+        const container = document.getElementById('esMatchList');
+        if (!container) return;
+        const isToday = esState.viewingDate === EsportsAnalyzer.todayStr();
+
+        if (currentMatches.length === 0) {
+            container.innerHTML = `<div class="empty-state">
+                <div class="es-empty-icon">📭</div>
+                <p>Không có trận hợp lệ ngày ${EsportsAnalyzer.formatDate(esState.viewingDate)}</p>
+                <p style="opacity:0.5;font-size:12px;">Top 30 teams + Tier 1 leagues (LCK, LPL, LEC, DPC, PGL...)</p>
+            </div>`;
+            return;
+        }
+
+        // Split matches by status
+        const liveMatches = currentMatches.filter(m => m.status === 'live');
+        const upcomingMatches = currentMatches.filter(m => m.status === 'upcoming');
+        const finishedMatches = currentMatches.filter(m => m.status === 'finished' || esState.bets.find(b => b.matchId === m.id)?.result != null);
+
+        let html = '';
+
+        // === SECTION 1: LIVE ===
+        if (liveMatches.length > 0) {
+            html += `<div class="es-section">
+                <div class="es-section-header es-section-live">
+                    <span class="es-section-icon">🔴</span>
+                    <span class="es-section-title">Đang thi đấu</span>
+                    <span class="es-section-count">${liveMatches.length}</span>
+                </div>
+                <div class="es-section-body">
+                    ${liveMatches.map(m => renderMatchCard(m, isToday)).join('')}
+                </div>
+            </div>`;
+        }
+
+        // === SECTION 2: UPCOMING ===
+        if (upcomingMatches.length > 0) {
+            const selectControls = isToday ? `<div class="es-select-controls">
+                <button class="es-select-btn" onclick="selectAllMatches()">☑ Chọn tất cả</button>
+                <button class="es-select-btn" onclick="deselectAllMatches()">☐ Bỏ chọn</button>
+                <span class="es-selected-count">${selectedMatches.size}/${upcomingMatches.length} đã chọn</span>
+            </div>` : '';
+
+            html += `<div class="es-section">
+                <div class="es-section-header es-section-upcoming">
+                    <span class="es-section-icon">⏳</span>
+                    <span class="es-section-title">Sắp diễn ra</span>
+                    <span class="es-section-count">${upcomingMatches.length}</span>
+                </div>
+                <div class="es-section-body">
+                    ${selectControls}
+                    ${upcomingMatches.map(m => renderMatchCard(m, isToday)).join('')}
+                </div>
+            </div>`;
+        }
+
+        // === SECTION 3: FINISHED (collapsible) ===
+        if (finishedMatches.length > 0) {
+            html += `<div class="es-section">
+                <div class="es-section-header es-section-finished" onclick="toggleFinishedSection()" style="cursor:pointer">
+                    <span class="es-section-icon">✅</span>
+                    <span class="es-section-title">Đã kết thúc</span>
+                    <span class="es-section-count">${finishedMatches.length}</span>
+                    <span class="es-section-toggle" id="esFinishedToggle">▼</span>
+                </div>
+                <div class="es-section-body" id="esFinishedBody">
+                    ${finishedMatches.map(m => renderMatchCard(m, isToday)).join('')}
+                </div>
+            </div>`;
+        }
+
+        // Empty active section
+        if (liveMatches.length === 0 && upcomingMatches.length === 0) {
+            html = `<div class="empty-state" style="margin-bottom:16px">
+                <p style="opacity:0.6;font-size:13px;">Không có trận live/upcoming — Chỉ có ${finishedMatches.length} trận đã kết thúc</p>
+            </div>` + html;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // Toggle finished section collapse
+    window.toggleFinishedSection = function () {
+        const body = document.getElementById('esFinishedBody');
+        const toggle = document.getElementById('esFinishedToggle');
+        if (!body) return;
+        const collapsed = body.style.display === 'none';
+        body.style.display = collapsed ? '' : 'none';
+        if (toggle) toggle.textContent = collapsed ? '▼' : '▶';
+    };
 
     function renderMatchBadge(rec, bet, isToday) {
         if (bet && bet.result != null) {

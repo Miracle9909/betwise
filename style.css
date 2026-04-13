@@ -2922,3 +2922,72 @@ body {
     margin-top: 2px;
     letter-spacing: 0.3px;
 }
+
+/* ===== MATCH SECTIONS ===== */
+.es-section {
+    margin-bottom: 16px;
+}
+
+.es-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.es-section-live {
+    background: rgba(255, 68, 68, 0.08);
+    border: 1px solid rgba(255, 68, 68, 0.15);
+    border-left: 3px solid #ff4444;
+}
+
+.es-section-upcoming {
+    background: rgba(87, 188, 255, 0.08);
+    border: 1px solid rgba(87, 188, 255, 0.15);
+    border-left: 3px solid #57bcff;
+}
+
+.es-section-finished {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.es-section-finished:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.es-section-icon {
+    font-size: 14px;
+}
+
+.es-section-title {
+    color: rgba(255, 255, 255, 0.85);
+    flex: 1;
+}
+
+.es-section-count {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.es-section-toggle {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    transition: transform 0.2s;
+}
+
+.es-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
