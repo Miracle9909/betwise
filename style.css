@@ -2871,3 +2871,54 @@ body {
     box-shadow: 0 0 15px rgba(87, 188, 255, 0.1);
     background: rgba(87, 188, 255, 0.04);
 }
+
+/* ===== LIVE DOT + SERIES BARS ===== */
+.es-live-dot {
+    font-size: 10px;
+    color: #ff4444;
+    font-weight: 700;
+    animation: live-pulse 1.5s ease-in-out infinite;
+    letter-spacing: 1px;
+}
+
+@keyframes live-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+.es-series-result-bar {
+    background: rgba(63, 255, 139, 0.08);
+    border: 1px solid rgba(63, 255, 139, 0.15);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: #3fff8b;
+    text-align: center;
+    margin: 4px 12px 0;
+}
+
+.es-series-live-bar {
+    background: rgba(255, 68, 68, 0.08);
+    border: 1px solid rgba(255, 68, 68, 0.15);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: #ff6b6b;
+    text-align: center;
+    margin: 4px 12px 0;
+    animation: live-pulse 2s ease-in-out infinite;
+}
+
+.es-score-final {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+}

@@ -237,9 +237,10 @@
                         <div class="es-vs-block">
                             ${hasSeriesScore
                     ? `<div class="es-series-score"><span class="es-ss ${aWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreA}</span><span class="es-ss-sep">:</span><span class="es-ss ${bWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreB}</span></div>`
-                    : `<div class="es-vs">VS</div>`
+                    : `<div class="es-vs">${isLive ? '🔴' : isFinished ? '✅' : 'VS'}</div>`
                 }
-                            ${hasRealResult ? `<div class="es-score-final">${match.result.kills} kills │ ${match.result.duration}p</div>` : ''}
+                            ${isFinished && match.result ? `<div class="es-score-final">${match.result.kills}K │ ${match.result.towers}T │ ${match.result.duration}p${match.result.dragons != null ? ' │ ' + match.result.dragons + 'D' : ''}</div>` : ''}
+                            ${isLive && !hasSeriesScore ? '<div class="es-live-dot">LIVE</div>' : ''}
                         </div>
                         <div class="es-team ${bWon ? 'es-team-winner' : ''}">
                             <span class="es-team-logo">${match.teamB.logo}</span>
@@ -247,6 +248,8 @@
                             <span class="es-team-elo">Elo ${match.teamB.elo}</span>
                         </div>
                     </div>
+                    ${isFinished && bo > 1 && hasSeriesScore ? `<div class="es-series-result-bar">${aWon ? '🏆 ' + match.teamA.name : bWon ? '🏆 ' + match.teamB.name : ''} thắng BO${bo} (${match.scoreA}:${match.scoreB})</div>` : ''}
+                    ${isLive && bo > 1 ? `<div class="es-series-live-bar">🔴 Đang thi đấu Game ${(match.scoreA || 0) + (match.scoreB || 0) + 1} / BO${bo}</div>` : ''}
                     ${renderMatchBadge(rec, bet, isToday)}
                 </div>`;
         }).join('');

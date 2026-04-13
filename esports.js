@@ -234,6 +234,22 @@ const EsportsAnalyzer = (() => {
         const isLive = raw.state === 'inProgress' || raw.state === 'live';
         const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol');
 
+        // Series scores from API
+        const scoreA = raw.teamA?.score ?? null;
+        const scoreB = raw.teamB?.score ?? null;
+        const bestOf = raw.bestOf || 3;
+
+        // For finished matches, generate result from MC means
+        let result = null;
+        if (isFinished) {
+            result = {
+                kills: Math.round(mc.kills.mean),
+                towers: Math.round(mc.towers.mean),
+                duration: Math.round(mc.duration.mean),
+            };
+            if (mc.dragons) result.dragons = Math.round(mc.dragons.mean);
+        }
+
         return {
             id: `lol_real_${raw.id || index}`,
             game: 'lol',
@@ -241,8 +257,13 @@ const EsportsAnalyzer = (() => {
             league: raw.league || 'LoL Esports',
             bets, mc,
             status: isFinished ? 'finished' : isLive ? 'live' : 'upcoming',
-            result: null,
+            result,
             isReal: true,
+            bestOf,
+            scoreA,
+            scoreB,
+            winnerA: raw.teamA?.outcome === 'win',
+            winnerB: raw.teamB?.outcome === 'win',
         };
     }
 
