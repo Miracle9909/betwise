@@ -11,16 +11,18 @@ const EsportsAnalyzer = (() => {
     'use strict';
 
     const STORAGE_KEY = 'betwise_esports_v5';
-    const MIN_CONFIDENCE = 0.58;
-    const MIN_EDGE = 0.05;
+    const MIN_CONFIDENCE = 0.65;  // v5.5: raised from 0.58 for higher accuracy
+    const MIN_EDGE = 0.08;        // v5.5: raised from 0.05 for higher accuracy
     const MONTE_CARLO_N = 500;
     const TZ_OFFSET_MS = 7 * 3600 * 1000; // GMT+7
 
-    // ===== BOOKMAKER LINES =====
-    const LINES = {
+    // ===== BOOKMAKER LINES (base — will be dynamically calibrated) =====
+    const BASE_LINES = {
         dota2: { tower: 12.5, kill: 45.5, time: 33.5 },
         lol: { tower: 11.5, kill: 24.5, time: 31.5, dragon: 4.5 }
     };
+    // Dynamic lines computed from real data
+    let dynamicLines = null;
 
     // ===== TOP 30 DOTA 2 TEAMS =====
     const TOP_DOTA2 = {
@@ -161,8 +163,9 @@ const EsportsAnalyzer = (() => {
         return defaults;
     }
 
-    function mapTeamFromName(name, game) {
+    function mapTeamFromName(name, game, allRawMatches) {
         const stats = getTeamStats(name || 'Unknown', game);
+        const realForm = computeRealForm(name, game, allRawMatches);
         return {
             id: (name || 'unknown').toLowerCase().replace(/\s+/g, '-'),
             name: name || 'Unknown',
@@ -175,14 +178,79 @@ const EsportsAnalyzer = (() => {
             sdKills: stats.sdK,
             sdTowers: stats.sdT,
             sdDur: stats.sdD,
-            form: [1, 0, 1, 0, 1],
+            form: realForm,
             ...(game === 'lol' ? { avgDragon: stats.avgDr || 2.2, sdDragon: stats.sdDr || 0.8 } : {}),
         };
     }
 
-    function mapOpenDotaToMatch(raw, index) {
-        const teamA = mapTeamFromName(raw.radiant_name, 'dota2');
-        const teamB = mapTeamFromName(raw.dire_name, 'dota2');
+    // ===== REAL FORM from finished matches =====
+    function computeRealForm(teamName, game, rawMatches) {
+        if (!teamName || !rawMatches || rawMatches.length === 0) return [1, 0, 1, 0, 1];
+        const lower = teamName.toLowerCase().trim();
+        const teamMatches = [];
+        if (game === 'dota2') {
+            for (const m of rawMatches) {
+                if (m.radiant_score == null || m.dire_score == null) continue;
+                const isRadiant = (m.radiant_name || '').toLowerCase().trim() === lower;
+                const isDire = (m.dire_name || '').toLowerCase().trim() === lower;
+                if (!isRadiant && !isDire) continue;
+                const won = isRadiant ? m.radiant_win : !m.radiant_win;
+                teamMatches.push(won ? 1 : 0);
+            }
+        } else {
+            // LoL — use outcome data
+            for (const m of rawMatches) {
+                const isA = (m.teamA?.name || '').toLowerCase().trim() === lower;
+                const isB = (m.teamB?.name || '').toLowerCase().trim() === lower;
+                if (!isA && !isB) continue;
+                const state = m.state || '';
+                if (state !== 'completed' && state !== 'finished') continue;
+                const won = isA ? m.teamA?.outcome === 'win' : m.teamB?.outcome === 'win';
+                teamMatches.push(won ? 1 : 0);
+            }
+        }
+        if (teamMatches.length === 0) return [1, 0, 1, 0, 1];
+        // Last 5 results (most recent first)
+        const last5 = teamMatches.slice(0, 5);
+        while (last5.length < 5) last5.push(Math.random() > 0.5 ? 1 : 0);
+        return last5;
+    }
+
+    // ===== DYNAMIC LINE CALIBRATION from real Dota 2 data =====
+    function calibrateLines(rawDotaMatches) {
+        const finished = rawDotaMatches.filter(m => m.radiant_score != null && m.dire_score != null && m.duration);
+        if (finished.length < 10) {
+            dynamicLines = null; // Not enough data, use base lines
+            return;
+        }
+        const kills = finished.map(m => m.radiant_score + m.dire_score);
+        const durations = finished.map(m => Math.round(m.duration / 60));
+        const towers = finished.map(m => Math.min(22, Math.round(m.duration / 160)));
+
+        const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+        const avgK = avg(kills);
+        const avgD = avg(durations);
+        const avgT = avg(towers);
+
+        dynamicLines = {
+            dota2: {
+                kill: Math.round(avgK * 2) / 2,    // Round to nearest 0.5
+                time: Math.round(avgD * 2) / 2,
+                tower: Math.round(avgT * 2) / 2,
+            },
+            lol: BASE_LINES.lol // Keep LoL on base until we get real data
+        };
+        console.log('[Esports] Dynamic lines calibrated:', dynamicLines.dota2, `(from ${finished.length} matches)`);
+    }
+
+    function getLines(game) {
+        if (dynamicLines && dynamicLines[game]) return dynamicLines[game];
+        return BASE_LINES[game];
+    }
+
+    function mapOpenDotaToMatch(raw, index, allRawDota) {
+        const teamA = mapTeamFromName(raw.radiant_name, 'dota2', allRawDota);
+        const teamB = mapTeamFromName(raw.dire_name, 'dota2', allRawDota);
         const time = toGMT7Time(raw.start_time * 1000);
         const { bets, mc } = analyzeBetTypes(teamA, teamB, 'dota2');
 
@@ -223,10 +291,10 @@ const EsportsAnalyzer = (() => {
         }
     }
 
-    function mapLolApiToMatch(raw, index, dateStr) {
-        const teamA = mapTeamFromName(raw.teamA?.name || 'Team A', 'lol');
+    function mapLolApiToMatch(raw, index, dateStr, allRawLol) {
+        const teamA = mapTeamFromName(raw.teamA?.name || 'Team A', 'lol', allRawLol);
         if (raw.teamA?.image) teamA.imageUrl = raw.teamA.image;
-        const teamB = mapTeamFromName(raw.teamB?.name || 'Team B', 'lol');
+        const teamB = mapTeamFromName(raw.teamB?.name || 'Team B', 'lol', allRawLol);
         if (raw.teamB?.image) teamB.imageUrl = raw.teamB.image;
 
         const time = raw.startTime ? toGMT7Time(raw.startTime) : '—';
@@ -239,16 +307,10 @@ const EsportsAnalyzer = (() => {
         const scoreB = raw.teamB?.score ?? null;
         const bestOf = raw.bestOf || 3;
 
-        // For finished matches, generate result from MC means
+        // v5.5: Do NOT generate fake results from MC simulation
+        // Only use real data for resolving predictions
         let result = null;
-        if (isFinished) {
-            result = {
-                kills: Math.round(mc.kills.mean),
-                towers: Math.round(mc.towers.mean),
-                duration: Math.round(mc.duration.mean),
-            };
-            if (mc.dragons) result.dragons = Math.round(mc.dragons.mean);
-        }
+        // No fake results — wait for real data to resolve
 
         return {
             id: `lol_real_${raw.id || index}`,
@@ -274,6 +336,9 @@ const EsportsAnalyzer = (() => {
             fetchLolMatches(dateStr),
         ]);
 
+        // v5.5: Calibrate dynamic lines from real Dota 2 data
+        calibrateLines(rawDota);
+
         // Filter Dota 2: Top 30 teams OR Tier 1 leagues
         const topDota = rawDota.filter(m =>
             isTopTeam(m.radiant_name) || isTopTeam(m.dire_name) ||
@@ -289,14 +354,13 @@ const EsportsAnalyzer = (() => {
             seen.add(key);
             deduped.push(m);
         }
-        const dotaMatches = deduped.map((m, i) => mapOpenDotaToMatch(m, i));
+        const dotaMatches = deduped.map((m, i) => mapOpenDotaToMatch(m, i, rawDota));
 
         // Map LoL API data — Top 30 teams OR Tier 1 leagues
         let lolMatches;
         if (rawLol && rawLol.length > 0) {
-            lolMatches = rawLol
-                .filter(m => isTopTeam(m.teamA?.name) || isTopTeam(m.teamB?.name) || isTier1League(m.league, 'lol'))
-                .map((m, i) => mapLolApiToMatch(m, i, dateStr));
+            const filteredLol = rawLol.filter(m => isTopTeam(m.teamA?.name) || isTopTeam(m.teamB?.name) || isTier1League(m.league, 'lol'));
+            lolMatches = filteredLol.map((m, i) => mapLolApiToMatch(m, i, dateStr, rawLol));
         } else {
             lolMatches = generateLolFallback(dateStr);
         }
@@ -395,9 +459,9 @@ const EsportsAnalyzer = (() => {
         return res;
     }
 
-    // ===== BET ANALYSIS =====
+    // ===== BET ANALYSIS (uses dynamic lines) =====
     function analyzeBetTypes(tA, tB, game) {
-        const mc = mcSim(tA, tB, game), l = LINES[game], bets = [];
+        const mc = mcSim(tA, tB, game), l = getLines(game), bets = [];
         bets.push(buildBet('tower_ou', 'Tài/Xỉu Trụ', l.tower, poissonOP(mc.towers.mean, l.tower), 1.80 + Math.random() * 0.15));
         bets.push(buildBet('kill_ou', 'Tài/Xỉu Mạng', l.kill, poissonOP(mc.kills.mean, l.kill), 1.82 + Math.random() * 0.13));
         const tOP = mc.duration.samples.filter(d => d > l.time).length / mc.duration.samples.length;
@@ -443,10 +507,37 @@ const EsportsAnalyzer = (() => {
         return Math.max(0.15, Math.min(0.70, multiplier)) * baseKelly;
     }
 
-    // ===== RECOMMENDATION (Adaptive Kelly) =====
-    function generateRecommendation(bets, bankroll, streak = 0, sessionPL = 0) {
+    // ===== RECOMMENDATION (Adaptive Kelly + Learning Loop v5.5) =====
+    function generateRecommendation(bets, bankroll, streak = 0, sessionPL = 0, predictions) {
+        // Phase 3: Learning loop — get accuracy per bet type from prediction history
+        const typeAccuracy = {};
+        if (predictions && predictions.length > 0) {
+            const resolved = predictions.filter(p => p.resolved);
+            for (const p of resolved) {
+                if (!typeAccuracy[p.betType]) typeAccuracy[p.betType] = { wins: 0, total: 0 };
+                typeAccuracy[p.betType].total++;
+                if (p.won) typeAccuracy[p.betType].wins++;
+            }
+        }
+
         let best = null, bestE = -Infinity;
-        for (const b of bets) { if (!b.pick || b.pickProb < MIN_CONFIDENCE) continue; const e = b.pickProb * (b.odds - 1) - (1 - b.pickProb); if (e > bestE && e >= MIN_EDGE) { bestE = e; best = b; } }
+        for (const b of bets) {
+            if (!b.pick || b.pickProb < MIN_CONFIDENCE) continue;
+
+            // Learning: skip bet types with < 50% historical accuracy (if enough data)
+            const acc = typeAccuracy[b.type];
+            if (acc && acc.total >= 5 && (acc.wins / acc.total) < 0.50) {
+                console.log(`[Learning] Skipping ${b.type}: ${acc.wins}/${acc.total} = ${(acc.wins / acc.total * 100).toFixed(0)}% accuracy`);
+                continue;
+            }
+            // Boost confidence threshold for weak types (40-60% accuracy)
+            if (acc && acc.total >= 5 && (acc.wins / acc.total) < 0.60 && b.pickProb < 0.72) {
+                continue; // Need higher confidence for historically weak types
+            }
+
+            const e = b.pickProb * (b.odds - 1) - (1 - b.pickProb);
+            if (e > bestE && e >= MIN_EDGE) { bestE = e; best = b; }
+        }
         if (!best) return { action: 'SKIP', reason: 'Không đủ edge', bestBet: null, amount: 0, probability: 0, edge: 0 };
         const p = best.pickProb, b2 = best.odds - 1;
         const rawKelly = (b2 * p - (1 - p)) / b2;
@@ -454,12 +545,11 @@ const EsportsAnalyzer = (() => {
         let t, sz;
         if (p >= 0.75) { t = 'elite'; sz = Math.min(kh * 1.3, 0.22); }
         else if (p >= 0.68) { t = 'high'; sz = Math.min(kh, 0.16); }
-        else if (p >= 0.58) { t = 'medium'; sz = Math.min(kh * 0.7, 0.10); }
-        else { t = 'skip'; sz = 0; }
+        else { t = 'skip'; sz = 0; } // v5.5: removed 'medium' tier — only elite+high
         const amt = Math.round(bankroll * sz / 10000) * 10000;
         if (amt < 50000) return { action: 'SKIP', reason: 'Mức cược nhỏ', bestBet: best, amount: 0, probability: p, edge: bestE };
         const pl = best.pick === 'over' ? `Tài (>${best.line})` : `Xỉu (<${best.line})`;
-        return { action: 'BET', bestBet: best, betType: best.type, betLabel: best.label, pick: best.pick, pickLabel: pl, probability: p, edge: bestE, kelly: kh, confTier: t, amount: amt, odds: best.odds, reason: `${t === 'elite' ? '🔥' : t === 'high' ? '✅' : '⚡'} P=${(p * 100).toFixed(0)}% Edge=+${(bestE * 100).toFixed(1)}% Kelly=${(kh * 100).toFixed(1)}%` };
+        return { action: 'BET', bestBet: best, betType: best.type, betLabel: best.label, pick: best.pick, pickLabel: pl, probability: p, edge: bestE, kelly: kh, confTier: t, amount: amt, odds: best.odds, reason: `${t === 'elite' ? '🔥' : '✅'} P=${(p * 100).toFixed(0)}% Edge=+${(bestE * 100).toFixed(1)}% Kelly=${(kh * 100).toFixed(1)}%` };
     }
 
     // ===== MATCH RESULT — use real data, no simulation =====
@@ -572,7 +662,7 @@ const EsportsAnalyzer = (() => {
     }
 
     return {
-        LINES, TOP_TEAMS, TOP_DOTA2, TOP_LOL,
+        LINES: BASE_LINES, TOP_TEAMS, TOP_DOTA2, TOP_LOL, getLines, calibrateLines,
         loadState, saveState, resetState, defaultState,
         loadMatchesForDate, generateRecommendation, analyzeBetTypes, adaptiveKelly,
         winProbability, simulateResult, resolveBet, fetchMatchResult, resolvePrediction, calcPredictionWinRate,
