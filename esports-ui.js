@@ -192,6 +192,11 @@
             const gameName = match.game === 'dota2' ? 'DOTA 2' : 'LOL';
             const isLive = match.status === 'live';
             const hasRealResult = match.result && match.isReal;
+            const bo = match.bestOf || 1;
+            const hasSeriesScore = match.scoreA != null && match.scoreB != null;
+            const seriesFinished = isFinished && hasSeriesScore;
+            const aWon = seriesFinished && match.scoreA > match.scoreB;
+            const bWon = seriesFinished && match.scoreB > match.scoreA;
 
             return `
                 <div class="es-match-card glass-card ${isFinished ? 'finished' : ''} ${isLive ? 'live' : ''}" 
@@ -199,6 +204,7 @@
                     <div class="es-match-header">
                         <div class="es-match-tags">
                             <span class="es-game-tag ${gameTag}">${gameName}</span>
+                            ${bo > 1 ? `<span class="es-bo-badge">BO${bo}</span>` : ''}
                             ${match.league ? `<span class="es-league-tag">${match.league}</span>` : ''}
                             ${match.isReal ? '<span class="es-real-badge">📡 REAL</span>' : ''}
                         </div>
@@ -208,16 +214,19 @@
                         </div>
                     </div>
                     <div class="es-teams">
-                        <div class="es-team">
+                        <div class="es-team ${aWon ? 'es-team-winner' : ''}">
                             <span class="es-team-logo">${match.teamA.logo}</span>
                             <span class="es-team-name">${match.teamA.name}</span>
                             <span class="es-team-elo">Elo ${match.teamA.elo}</span>
                         </div>
                         <div class="es-vs-block">
-                            <div class="es-vs">VS</div>
+                            ${hasSeriesScore
+                    ? `<div class="es-series-score"><span class="es-ss ${aWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreA}</span><span class="es-ss-sep">:</span><span class="es-ss ${bWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreB}</span></div>`
+                    : `<div class="es-vs">VS</div>`
+                }
                             ${hasRealResult ? `<div class="es-score-final">${match.result.kills} kills │ ${match.result.duration}p</div>` : ''}
                         </div>
-                        <div class="es-team">
+                        <div class="es-team ${bWon ? 'es-team-winner' : ''}">
                             <span class="es-team-logo">${match.teamB.logo}</span>
                             <span class="es-team-name">${match.teamB.name}</span>
                             <span class="es-team-elo">Elo ${match.teamB.elo}</span>
@@ -376,27 +385,80 @@
         const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital);
         const bet = esState.bets.find(b => b.matchId === matchId);
         const gameName = match.game === 'dota2' ? 'DOTA 2' : 'LOL';
+        const bo = match.bestOf || 1;
+        const hasSeriesScore = match.scoreA != null && match.scoreB != null;
+        const isFinished = match.status === 'finished';
+        const aWon = isFinished && hasSeriesScore && match.scoreA > match.scoreB;
+        const bWon = isFinished && hasSeriesScore && match.scoreB > match.scoreA;
 
         document.getElementById('esModalTitle').textContent = `${gameName} — ${match.teamA.name} vs ${match.teamB.name}`;
         const body = document.getElementById('esModalBody');
 
+        // Generate game-by-game tabs for BO series
+        const totalGames = hasSeriesScore ? (match.scoreA + match.scoreB) : 0;
+        let seriesHTML = '';
+        if (bo > 1) {
+            seriesHTML = `
+            <div class="es-modal-section es-series-section">
+                <div class="es-modal-label">📋 SERIES — Best of ${bo}</div>
+                <div class="es-series-overview">
+                    <div class="es-series-team ${aWon ? 'es-series-winner' : ''}">
+                        <span class="es-series-logo">${match.teamA.logo}</span>
+                        <span class="es-series-name">${match.teamA.name}</span>
+                    </div>
+                    <div class="es-series-scoreboard">
+                        <span class="es-series-score-num ${aWon ? 'es-series-w' : ''}">${match.scoreA ?? '—'}</span>
+                        <span class="es-series-divider">:</span>
+                        <span class="es-series-score-num ${bWon ? 'es-series-w' : ''}">${match.scoreB ?? '—'}</span>
+                    </div>
+                    <div class="es-series-team ${bWon ? 'es-series-winner' : ''}">
+                        <span class="es-series-logo">${match.teamB.logo}</span>
+                        <span class="es-series-name">${match.teamB.name}</span>
+                    </div>
+                </div>
+                ${totalGames > 0 ? `
+                <div class="es-game-tabs">
+                    ${Array.from({ length: totalGames }, (_, i) => {
+                const gNum = i + 1;
+                const gameResult = match.games?.[i];
+                const gWinner = gameResult?.winner || (i < (match.scoreA || 0) ? 'A' : 'B');
+                return `<button class="es-game-tab ${i === 0 ? 'active' : ''}" onclick="switchGameTab(event, ${i}, '${matchId}')">
+                            <span class="es-gt-label">G${gNum}</span>
+                            <span class="es-gt-dot ${gWinner === 'A' ? 'es-gt-a' : 'es-gt-b'}"></span>
+                        </button>`;
+            }).join('')}
+                </div>
+                <div class="es-game-detail" id="esGameDetail_${matchId}">
+                    ${renderGameDetail(match, 0)}
+                </div>` : `
+                <div class="es-series-status">${match.status === 'live' ? '🔴 Đang thi đấu...' : match.status === 'upcoming' ? '📅 Chưa bắt đầu' : ''}</div>`}
+            </div>`;
+        }
+
         body.innerHTML = `
-            ${match.league ? `<div class="es-modal-league">🏆 ${match.league} ${match.isReal ? '— 📡 Real Data' : ''}</div>` : ''}
+            ${match.league ? `<div class="es-modal-league">🏆 ${match.league} ${bo > 1 ? `— BO${bo}` : ''} ${match.isReal ? '— 📡 Real Data' : ''}</div>` : ''}
             <div class="es-modal-teams">
-                <div class="es-modal-team">
+                <div class="es-modal-team ${aWon ? 'es-modal-team-winner' : ''}">
                     <span class="es-modal-logo">${match.teamA.logo}</span>
                     <span class="es-modal-name">${match.teamA.name}</span>
                     <span class="es-modal-region">${match.teamA.region} │ Elo ${match.teamA.elo}</span>
                     <span class="es-modal-form">Form: ${match.teamA.form.map(f => f ? '✅' : '❌').join('')}</span>
                 </div>
-                <div class="es-modal-vs">VS</div>
-                <div class="es-modal-team">
+                <div class="es-modal-vs-area">
+                    ${hasSeriesScore
+                ? `<div class="es-modal-series-score"><span class="${aWon ? 'es-series-w' : ''}">${match.scoreA}</span> : <span class="${bWon ? 'es-series-w' : ''}">${match.scoreB}</span></div>`
+                : '<div class="es-modal-vs">VS</div>'
+            }
+                    ${bo > 1 ? `<div class="es-modal-bo">BO${bo}</div>` : ''}
+                </div>
+                <div class="es-modal-team ${bWon ? 'es-modal-team-winner' : ''}">
                     <span class="es-modal-logo">${match.teamB.logo}</span>
                     <span class="es-modal-name">${match.teamB.name}</span>
                     <span class="es-modal-region">${match.teamB.region} │ Elo ${match.teamB.elo}</span>
                     <span class="es-modal-form">Form: ${match.teamB.form.map(f => f ? '✅' : '❌').join('')}</span>
                 </div>
             </div>
+            ${seriesHTML}
             <div class="es-modal-section"><div class="es-modal-label">Win Probability</div><div class="es-wp-bar"><div class="es-wp-fill" style="width:${(wp * 100).toFixed(0)}%">${match.teamA.name} ${(wp * 100).toFixed(0)}%</div></div></div>
             <div class="es-modal-section"><div class="es-modal-label">H2H Record</div><div class="es-modal-h2h"><span>${match.teamA.name}: ${h2h.wins}W</span><span class="es-h2h-total">${h2h.total} trận</span><span>${match.teamB.name}: ${h2h.losses}W</span></div></div>
             <div class="es-modal-section"><div class="es-modal-label">Phân tích kèo</div>${match.bets.map(b => { const e = b.pick ? ((b.pickProb * (b.odds - 1) - (1 - b.pickProb)) * 100).toFixed(1) : '0'; return `<div class="es-bet-analysis"><span class="es-bet-type">${b.label}</span><span class="es-bet-line">Line: ${b.line}</span><span class="es-bet-odds">Odds: ${b.odds.toFixed(2)}</span><span class="es-bet-prob">Tài: ${(b.overProb * 100).toFixed(0)}% │ Xỉu: ${(b.underProb * 100).toFixed(0)}%</span>${b.pick ? `<span class="es-bet-pick ${Number(e) > 5 ? 'es-win' : ''}">→ ${b.pick === 'over' ? 'Tài' : 'Xỉu'} (Edge: +${e}%)</span>` : '<span class="es-bet-pick">Không đủ edge</span>'}</div>`; }).join('')}</div>
@@ -405,6 +467,49 @@
             ${bet ? `<div class="es-modal-section"><div class="es-modal-label">Lệnh đặt</div><div class="es-bet-record ${bet.result === 'win' ? 'es-win' : bet.result === 'loss' ? 'es-loss' : ''}"><div>${bet.betLabel}: ${bet.pickLabel} @ ${bet.odds.toFixed(2)}</div><div>₫${EsportsAnalyzer.fmtFull(bet.amount)}</div>${bet.result ? `<div>${bet.result === 'win' ? '✅ Thắng' : '❌ Thua'} — ${bet.pnl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(bet.pnl))}</div>` : '<div>⏳ Đang thi đấu...</div>'}</div></div>` : ''}`;
 
         document.getElementById('esMatchModal').classList.remove('hidden');
+    };
+
+    // Game-by-game tab switching + per-game detail
+    function renderGameDetail(match, gameIndex) {
+        const g = match.games?.[gameIndex];
+        const gNum = gameIndex + 1;
+        if (g) {
+            return `<div class="es-gd-card">
+                <div class="es-gd-header">MAP ${gNum} ${g.winner ? (g.winner === 'A' ? `— ${match.teamA.name} thắng` : `— ${match.teamB.name} thắng`) : ''}</div>
+                <div class="es-gd-stats">
+                    ${g.kills != null ? `<div class="es-gd-stat"><span>Mạng</span><strong>${g.kills}</strong></div>` : ''}
+                    ${g.towers != null ? `<div class="es-gd-stat"><span>Trụ</span><strong>${g.towers}</strong></div>` : ''}
+                    ${g.duration != null ? `<div class="es-gd-stat"><span>Thời gian</span><strong>${g.duration}p</strong></div>` : ''}
+                    ${g.dragons != null ? `<div class="es-gd-stat"><span>Rồng</span><strong>${g.dragons}</strong></div>` : ''}
+                </div>
+            </div>`;
+        }
+        // Simulated game detail
+        const seed = EsportsAnalyzer.hashCode ? EsportsAnalyzer.hashCode(match.id + '_g' + gNum) : (gNum * 17 + 31);
+        const rng = () => { const x = Math.sin(seed + gameIndex * 37) * 10000; return x - Math.floor(x); };
+        const isLol = match.game === 'lol';
+        const kills = isLol ? (18 + Math.floor(rng() * 15)) : (35 + Math.floor(rng() * 20));
+        const towers = isLol ? (8 + Math.floor(rng() * 6)) : (8 + Math.floor(rng() * 8));
+        const dur = isLol ? (26 + Math.floor(rng() * 12)) : (28 + Math.floor(rng() * 15));
+        const winner = gameIndex < (match.scoreA || 0) ? match.teamA.name : match.teamB.name;
+        return `<div class="es-gd-card">
+            <div class="es-gd-header">MAP ${gNum} — ${winner} thắng</div>
+            <div class="es-gd-stats">
+                <div class="es-gd-stat"><span>Mạng</span><strong>${kills}</strong></div>
+                <div class="es-gd-stat"><span>Trụ</span><strong>${towers}</strong></div>
+                <div class="es-gd-stat"><span>Thời gian</span><strong>${dur}p</strong></div>
+                ${isLol ? `<div class="es-gd-stat"><span>Rồng</span><strong>${2 + Math.floor(rng() * 3)}</strong></div>` : ''}
+            </div>
+        </div>`;
+    }
+
+    window.switchGameTab = function (event, gameIndex, matchId) {
+        const match = currentMatches.find(m => m.id === matchId);
+        if (!match) return;
+        document.querySelectorAll('.es-game-tab').forEach(t => t.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        const detail = document.getElementById('esGameDetail_' + matchId);
+        if (detail) detail.innerHTML = renderGameDetail(match, gameIndex);
     };
     window.closeEsMatchModal = function () { document.getElementById('esMatchModal').classList.add('hidden'); };
 
