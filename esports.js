@@ -163,14 +163,18 @@ const EsportsAnalyzer = (() => {
     // ===== FETCH ALL MATCHES FOR A DATE =====
 
     async function loadMatchesForDate(dateStr) {
-        const rawDota = await fetchMatchesForDate(dateStr);
+        // Fetch Dota 2 + LoL in parallel
+        const [rawDota, rawLol] = await Promise.all([
+            fetchMatchesForDate(dateStr),
+            fetchLolMatches(dateStr),
+        ]);
 
-        // Filter for matches where at least one team is top-tier
+        // Filter Dota 2 for top teams
         const topDota = rawDota.filter(m =>
             isTopTeam(m.radiant_name) || isTopTeam(m.dire_name)
         );
 
-        // Dedup by series (keep one match per unique team pair)
+        // Dedup Dota by series
         const seen = new Set();
         const deduped = [];
         for (const m of topDota) {
@@ -180,19 +184,67 @@ const EsportsAnalyzer = (() => {
             deduped.push(m);
         }
 
-        // Map to our match format
         const dotaMatches = deduped.map((m, i) => mapOpenDotaToMatch(m, i));
 
-        // Add simulated LoL matches (OpenDota only has Dota 2)
-        const lolMatches = generateLolMatches(dateStr);
+        // Map LoL API data or fallback to simulation
+        let lolMatches;
+        if (rawLol && rawLol.length > 0) {
+            lolMatches = rawLol.map((m, i) => mapLolApiToMatch(m, i, dateStr));
+        } else {
+            lolMatches = generateLolFallback(dateStr);
+        }
 
         const all = [...dotaMatches, ...lolMatches];
         all.sort((a, b) => a.time.localeCompare(b.time));
         return all;
     }
 
-    // ===== LOL MATCHES (simulated from real tournament teams) =====
-    function generateLolMatches(dateStr) {
+    // ===== FETCH REAL LOL MATCHES (Vercel proxy) =====
+    async function fetchLolMatches(dateStr) {
+        try {
+            const start = dateStr + 'T00:00:00.000Z';
+            const end = dateStr + 'T23:59:59.000Z';
+            const url = `/api/lol-matches?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+            const res = await fetch(url);
+            if (!res.ok) return [];
+            const data = await res.json();
+            if (!data.success || !data.matches) return [];
+            return data.matches;
+        } catch (e) {
+            console.warn('[Esports] LoL API fetch failed:', e);
+            return [];
+        }
+    }
+
+    function mapLolApiToMatch(raw, index, dateStr) {
+        const teamA = mapTeamFromName(raw.teamA?.name || 'Team A', 'lol');
+        if (raw.teamA?.image) teamA.imageUrl = raw.teamA.image;
+        const teamB = mapTeamFromName(raw.teamB?.name || 'Team B', 'lol');
+        if (raw.teamB?.image) teamB.imageUrl = raw.teamB.image;
+
+        const time = raw.startTime
+            ? new Date(raw.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+            : '—';
+
+        const isFinished = raw.state === 'completed' || raw.state === 'finished';
+        const isLive = raw.state === 'inProgress' || raw.state === 'live';
+
+        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol');
+
+        return {
+            id: `lol_real_${raw.id || index}`,
+            game: 'lol',
+            teamA, teamB, time,
+            league: raw.league || 'LoL Esports',
+            bets, mc,
+            status: isFinished ? 'finished' : isLive ? 'live' : 'upcoming',
+            result: null,
+            isReal: true,
+        };
+    }
+
+    // ===== LOL FALLBACK (simulated from real tournament teams) =====
+    function generateLolFallback(dateStr) {
         const seed = hashCode(dateStr + '_lol');
         const rng = seededRandom(seed);
         const lolTeams = Object.entries(TOP_TEAMS).filter(([, v]) => v.avgDr != null);
@@ -205,8 +257,8 @@ const EsportsAnalyzer = (() => {
             const avail = lolTeams.filter(([k]) => !used.has(k));
             if (avail.length < 2) break;
             const shuffled = avail.sort(() => rng() - 0.5);
-            const [nameA, statsA] = shuffled[0];
-            const [nameB, statsB] = shuffled[1];
+            const [nameA] = shuffled[0];
+            const [nameB] = shuffled[1];
             used.add(nameA);
             used.add(nameB);
 
@@ -221,7 +273,7 @@ const EsportsAnalyzer = (() => {
 
             const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol');
             matches.push({
-                id: `lol_${dateStr}_${i}`,
+                id: `lol_sim_${dateStr}_${i}`,
                 game: 'lol',
                 teamA, teamB, time,
                 league: leagues[Math.floor(rng() * leagues.length)],
