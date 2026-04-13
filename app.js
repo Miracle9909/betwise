@@ -66,7 +66,7 @@
         document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
         document.getElementById('tab-' + tab).classList.add('active');
         document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-        if (tab === 'newbet') updateBetForm();
+
         if (tab === 'history') renderHistory();
         if (tab === 'dashboard') updateDashboard();
         if (tab === 'esports' && window.EsportsUI) window.EsportsUI.initEsports();

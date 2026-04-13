@@ -294,34 +294,92 @@
         if (isAutoRunning) return;
         isAutoRunning = true; autoRunAbort = false; renderAutoButton();
 
+        // Only bet on UPCOMING matches — skip live and finished
         const pending = currentMatches.filter(m => {
-            const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital);
+            if (m.status !== 'upcoming') return false; // KEY: only upcoming
+            const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
             return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
         });
 
+        if (pending.length === 0) {
+            window.showToast?.('⏳ Không có trận upcoming đủ điều kiện', 'info');
+            isAutoRunning = false; renderAll();
+            return;
+        }
+
+        window.showToast?.(`🎯 Tìm thấy ${pending.length} trận upcoming — bắt đầu đặt lệnh`, 'info');
+
         for (const match of pending) {
             if (autoRunAbort) break;
-            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital);
+            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
             if (rec.action !== 'BET') continue;
 
+            // Place bet
             const betRecord = { matchId: match.id, betType: rec.betType, betLabel: rec.betLabel, pick: rec.pick, pickLabel: rec.pickLabel, line: rec.bestBet.line, amount: rec.amount, odds: rec.odds, probability: rec.probability, edge: rec.edge, result: null, pnl: 0, matchResult: null, timestamp: new Date().toISOString() };
             esState.bets.push(betRecord);
             EsportsAnalyzer.saveState(esState); renderAll();
             highlightCard(match.id, 'betting');
-            window.showToast?.(`🎯 Đặt ₫${EsportsAnalyzer.fmtFull(rec.amount)} — ${rec.betLabel}: ${rec.pickLabel}`, 'info');
+            window.showToast?.(`🎯 Đặt ₫${EsportsAnalyzer.fmtFull(rec.amount)} — ${rec.betLabel}: ${rec.pickLabel} (Adaptive Kelly)`, 'info');
             await delay(2000);
             if (autoRunAbort) break;
 
-            const result = EsportsAnalyzer.simulateResult(match);
+            // Poll for real result — max 4 hours, check every 60s
+            let result = null;
+            const maxPolls = 240; // 4h at 60s intervals
+            let pollCount = 0;
+
+            // First check if match already has result
+            result = EsportsAnalyzer.simulateResult(match);
+            if (result) {
+                // Match already finished — use real result
+            } else if (match.isReal) {
+                // Real match — poll API for result
+                window.showToast?.('⏳ Chờ kết quả thực từ API...', 'info');
+                while (!result && pollCount < maxPolls && !autoRunAbort) {
+                    await delay(60000); // Wait 60 seconds
+                    pollCount++;
+                    result = await EsportsAnalyzer.fetchMatchResult(match);
+                    if (pollCount % 5 === 0) {
+                        window.showToast?.(`⏳ Đã chờ ${pollCount} phút — vẫn đang polling...`, 'info');
+                    }
+                }
+                if (!result && !autoRunAbort) {
+                    // Timeout — mark as pending, skip to next
+                    window.showToast?.('⏰ Timeout chờ kết quả — chuyển trận tiếp', 'warning');
+                    continue;
+                }
+            } else {
+                // Non-real match — simulate as fallback
+                const mc = EsportsAnalyzer.analyzeBetTypes(match.teamA, match.teamB, match.game);
+                result = {
+                    kills: Math.round(mc.mc.kills.mean),
+                    towers: Math.round(mc.mc.towers.mean),
+                    duration: Math.round(mc.mc.duration.mean),
+                };
+                if (mc.mc.dragons) result.dragons = Math.round(mc.mc.dragons.mean);
+            }
+
+            if (autoRunAbort || !result) break;
+
+            // Resolve bet with real/simulated result
             const resolution = EsportsAnalyzer.resolveBet(betRecord, result);
             betRecord.result = resolution.won ? 'win' : 'loss';
             betRecord.pnl = resolution.pnl;
             betRecord.matchResult = result;
             esState.capital += resolution.pnl;
             match.status = 'finished'; match.result = result;
+
+            // Update adaptive streak
+            if (resolution.won) {
+                esState.streak = Math.max(1, (esState.streak || 0) + 1);
+            } else {
+                esState.streak = Math.min(-1, (esState.streak || 0) - 1);
+            }
+            esState.sessionPL = (esState.sessionPL || 0) + resolution.pnl;
+
             EsportsAnalyzer.saveState(esState); renderAll();
             highlightCard(match.id, resolution.won ? 'win' : 'loss');
-            window.showToast?.(resolution.won ? `✅ THẮNG +₫${EsportsAnalyzer.fmtFull(resolution.pnl)}!` : `❌ Thua -₫${EsportsAnalyzer.fmtFull(Math.abs(resolution.pnl))}`, resolution.won ? 'success' : 'error');
+            window.showToast?.(resolution.won ? `✅ THẮNG +₫${EsportsAnalyzer.fmtFull(resolution.pnl)}! (Streak: ${esState.streak})` : `❌ Thua -₫${EsportsAnalyzer.fmtFull(Math.abs(resolution.pnl))} (Streak: ${esState.streak})`, resolution.won ? 'success' : 'error');
             await delay(1500);
         }
 
@@ -329,7 +387,7 @@
         EsportsAnalyzer.saveState(esState); renderAll();
         const tb = esState.bets.filter(b => b.timestamp?.startsWith(EsportsAnalyzer.todayStr()) && b.result !== null);
         const pl = tb.reduce((s, b) => s + (b.pnl || 0), 0);
-        window.showToast?.(`🏆 P&L: ${pl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(pl))}`, pl >= 0 ? 'success' : 'error');
+        window.showToast?.(`🏆 P&L: ${pl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(pl))} | Streak: ${esState.streak || 0}`, pl >= 0 ? 'success' : 'error');
     }
 
     function highlightCard(id, state) { const c = document.querySelector(`[data-match-id="${id}"]`); if (!c) return; c.classList.remove('betting', 'win', 'loss'); c.classList.add(state); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
