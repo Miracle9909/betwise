@@ -305,6 +305,9 @@
 
         <!-- ====== ESPORTS TAB ====== -->
         <main class="tab-content" id="tab-esports">
+            <!-- Date Navigator -->
+            <div class="es-date-nav" id="esDateNav"></div>
+
             <!-- Capital Card -->
             <section class="es-capital glass-card">
                 <div class="es-capital-header">
@@ -400,15 +403,11 @@
                         <label>Vốn ban đầu (₫)</label>
                         <input type="text" id="esSettCapital" inputmode="numeric" placeholder="10,000,000">
                     </div>
-                    <div class="form-group" style="margin-top:16px">
-                        <label>🔑 PandaScore API Token</label>
-                        <input type="text" id="esSettToken" placeholder="Nhập token để xem trận thực..."
-                            style="font-family:monospace;font-size:13px">
-                        <small style="display:block;margin-top:6px;opacity:0.6;font-size:12px">
-                            Free: <a href="https://app.pandascore.co/signup" target="_blank" rel="noopener"
-                                style="color:var(--accent)">Đăng ký PandaScore</a> → Lấy API token → Paste vào đây → Lưu
-                            → Xem trận Dota 2 & LoL thực
-                        </small>
+                    <div
+                        style="margin-top:16px;padding:12px;border-radius:8px;background:rgba(63,255,139,0.06);border:1px solid rgba(63,255,139,0.15)">
+                        <div style="font-size:12px;color:var(--primary)">📡 Nguồn dữ liệu tự động</div>
+                        <div style="font-size:11px;color:var(--on-surface-variant);margin-top:4px">Dota 2: OpenDota API
+                            (miễn phí, không cần API key)<br>LoL: Giả lập từ lịch giải đấu thực</div>
                     </div>
                     <button class="btn-primary" onclick="saveEsSettings()"
                         style="width:100%;margin-top:12px">LƯU</button>

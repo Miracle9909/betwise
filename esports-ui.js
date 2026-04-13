@@ -1,9 +1,5 @@
 /**
- * BetWise Esports UI Controller v3.0 — Real Match Data + Fallback
- * 
- * Fetches real matches from PandaScore API when token is available.
- * Falls back to simulated matches otherwise.
- * Shows data source indicator (LIVE vs SIMULATOR).
+ * BetWise Esports UI Controller v4.0 — Real Data + Date Navigation
  */
 (function () {
     'use strict';
@@ -12,48 +8,63 @@
     let currentMatches = [];
     let isAutoRunning = false;
     let autoRunAbort = false;
-    let dataSource = 'simulator'; // 'live' or 'simulator'
+    let dataSource = 'loading';
 
     // ===== INIT =====
     async function initEsports() {
-        const today = EsportsAnalyzer.todayStr();
-        if (esState.currentDate !== today) {
-            esState.dailyMatches = {};
-            esState.currentDate = today;
-            esState.autoRunComplete = false;
+        if (!esState.viewingDate) esState.viewingDate = EsportsAnalyzer.todayStr();
+        renderDateNav();
+        await loadDate(esState.viewingDate);
+    }
+
+    async function loadDate(dateStr) {
+        esState.viewingDate = dateStr;
+        EsportsAnalyzer.saveState(esState);
+
+        renderDateNav();
+        const container = document.getElementById('esMatchList');
+        if (container) container.innerHTML = '<div class="es-loading"><div class="es-spinner"></div>Đang tải trận đấu...</div>';
+
+        // Check cache first
+        if (esState.matchCache && esState.matchCache[dateStr] && esState.matchCache[dateStr].length > 0) {
+            currentMatches = esState.matchCache[dateStr];
+            dataSource = currentMatches.some(m => m.isReal) ? 'live' : 'simulator';
+            renderAll();
+            // Re-fetch in background if viewing today
+            if (dateStr === EsportsAnalyzer.todayStr()) {
+                refreshMatches(dateStr, false);
+            }
+            return;
         }
 
-        // Show loading state
-        const container = document.getElementById('esMatchList');
-        if (container) container.innerHTML = '<div class="es-loading">⏳ Đang tải lịch thi đấu...</div>';
+        await refreshMatches(dateStr, true);
+    }
 
-        // Try fetching real matches
-        if (esState.apiToken) {
-            const realMatches = await EsportsAnalyzer.fetchRealMatches(esState.apiToken);
-            if (realMatches && realMatches.length > 0) {
-                // Filter to only qualifying matches
-                const qualified = realMatches.filter(m => {
-                    const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital);
-                    return rec.action === 'BET';
-                });
-                currentMatches = qualified.length > 0 ? qualified : realMatches.slice(0, 8);
-                esState.dailyMatches[today] = currentMatches;
-                dataSource = 'live';
+    async function refreshMatches(dateStr, showLoading) {
+        try {
+            const matches = await EsportsAnalyzer.loadMatchesForDate(dateStr);
+            if (matches.length > 0) {
+                currentMatches = matches;
+                dataSource = matches.some(m => m.isReal) ? 'live' : 'simulator';
+                if (!esState.matchCache) esState.matchCache = {};
+                esState.matchCache[dateStr] = matches;
                 EsportsAnalyzer.saveState(esState);
                 renderAll();
-                window.showToast?.(`🔴 LIVE — ${currentMatches.length} trận Dota 2 + LoL từ PandaScore`, 'success');
-                return;
+                if (showLoading) {
+                    const realCount = matches.filter(m => m.isReal).length;
+                    window.showToast?.(`✅ ${matches.length} trận (${realCount} thực) — ${EsportsAnalyzer.formatDate(dateStr)}`, 'success');
+                }
+            } else {
+                currentMatches = [];
+                dataSource = 'empty';
+                renderAll();
             }
+        } catch (e) {
+            console.error('[Esports] Load failed:', e);
+            currentMatches = [];
+            dataSource = 'error';
+            renderAll();
         }
-
-        // Fallback to simulated
-        if (!esState.dailyMatches[today] || esState.dailyMatches[today].length === 0) {
-            esState.dailyMatches[today] = EsportsAnalyzer.generateFallbackMatches(today);
-            EsportsAnalyzer.saveState(esState);
-        }
-        currentMatches = esState.dailyMatches[today];
-        dataSource = 'simulator';
-        renderAll();
     }
 
     function renderAll() {
@@ -66,26 +77,69 @@
         renderAutoButton();
     }
 
-    // ===== DATA SOURCE INDICATOR =====
+    // ===== DATE NAVIGATOR =====
+    function renderDateNav() {
+        const el = document.getElementById('esDateNav');
+        if (!el) return;
+        const today = EsportsAnalyzer.todayStr();
+        const viewing = esState.viewingDate || today;
+        const isToday = viewing === today;
+
+        const d = new Date(viewing + 'T12:00:00');
+        const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+        const dayName = dayNames[d.getDay()];
+        const label = isToday ? `HÔM NAY — ${dayName} ${d.getDate()}/${monthNames[d.getMonth()]}` : `${dayName} ${d.getDate()}/${monthNames[d.getMonth()]}/${d.getFullYear()}`;
+
+        el.innerHTML = `
+            <button class="es-nav-btn" onclick="navigateDate(-1)" title="Ngày trước">◀</button>
+            <div class="es-nav-date ${isToday ? 'today' : ''}">
+                <span class="es-nav-label">${label}</span>
+                ${!isToday ? '<button class="es-nav-today" onclick="navigateToToday()">Hôm nay</button>' : ''}
+            </div>
+            <button class="es-nav-btn" onclick="navigateDate(1)" title="Ngày sau" ${isToday ? 'disabled' : ''}>▶</button>
+        `;
+    }
+
+    window.navigateDate = async function (offset) {
+        const newDate = EsportsAnalyzer.shiftDate(esState.viewingDate, offset);
+        const today = EsportsAnalyzer.todayStr();
+        if (newDate > today) return;
+        await loadDate(newDate);
+    };
+    window.navigateToToday = async function () {
+        await loadDate(EsportsAnalyzer.todayStr());
+    };
+
+    // ===== DATA SOURCE =====
     function renderDataSource() {
         let el = document.getElementById('esDataSource');
         if (!el) {
-            const header = document.querySelector('#esportsContent .es-capital-card');
-            if (!header) return;
+            const nav = document.getElementById('esDateNav');
+            if (!nav) return;
             el = document.createElement('div');
             el.id = 'esDataSource';
-            header.parentNode.insertBefore(el, header.nextSibling);
+            nav.parentNode.insertBefore(el, nav.nextSibling);
         }
+        const realCount = currentMatches.filter(m => m.isReal).length;
+        const simCount = currentMatches.filter(m => !m.isReal).length;
+
         if (dataSource === 'live') {
-            el.innerHTML = '<span class="es-source-live">🔴 LIVE DATA</span> — PandaScore API — Trận đấu thực';
+            el.innerHTML = `<span class="es-source-live">🔴 LIVE DATA</span> — OpenDota API — ${realCount} trận Dota 2 thực${simCount > 0 ? ` + ${simCount} LoL giả lập` : ''}`;
             el.className = 'es-data-source live';
+        } else if (dataSource === 'simulator') {
+            el.innerHTML = '<span class="es-source-sim">🟡 SIMULATOR</span> — Dữ liệu giả lập từ giải đấu thực';
+            el.className = 'es-data-source sim';
+        } else if (dataSource === 'empty') {
+            el.innerHTML = '<span class="es-source-sim">📭</span> — Không tìm thấy trận top 50 trong ngày này';
+            el.className = 'es-data-source sim';
         } else {
-            el.innerHTML = `<span class="es-source-sim">🟡 SIMULATOR</span> — Dữ liệu giả lập — <a href="#" onclick="openEsSettings(); return false;">Nhập API Token để xem trận thực</a>`;
+            el.innerHTML = '<span class="es-source-sim">⏳</span> Đang tải...';
             el.className = 'es-data-source sim';
         }
     }
 
-    // ===== CAPITAL CARD =====
+    // ===== CAPITAL =====
     function renderCapital() {
         const el = id => document.getElementById(id);
         if (!el('esCapital')) return;
@@ -109,9 +163,7 @@
         const streakEl = el('esStreak');
         if (streakEl && resolved.length > 0) {
             let streak = 1, last = resolved[resolved.length - 1].result;
-            for (let i = resolved.length - 2; i >= 0; i--) {
-                if (resolved[i].result === last) streak++; else break;
-            }
+            for (let i = resolved.length - 2; i >= 0; i--) { if (resolved[i].result === last) streak++; else break; }
             streakEl.textContent = (last === 'win' ? '🔥 ' : '❄️ ') + streak + (last === 'win' ? 'W' : 'L');
             streakEl.className = 'es-pl-value ' + (last === 'win' ? 'es-win' : 'es-loss');
         }
@@ -121,11 +173,13 @@
     function renderMatchList() {
         const container = document.getElementById('esMatchList');
         if (!container) return;
+        const isToday = esState.viewingDate === EsportsAnalyzer.todayStr();
 
         if (currentMatches.length === 0) {
             container.innerHTML = `<div class="empty-state">
-                <p>Không có trận đấu hôm nay</p>
-                ${!esState.apiToken ? '<p style="opacity:0.7;font-size:13px;">Nhập PandaScore API Token trong ⚙️ Settings để xem trận thực</p>' : ''}
+                <div class="es-empty-icon">📭</div>
+                <p>Không có trận đấu top 50 trong ngày ${EsportsAnalyzer.formatDate(esState.viewingDate)}</p>
+                <p style="opacity:0.5;font-size:12px;">OpenDota API chỉ lưu khoảng 100 trận gần nhất</p>
             </div>`;
             return;
         }
@@ -137,67 +191,74 @@
             const gameTag = match.game === 'dota2' ? 'dota2' : 'lol';
             const gameName = match.game === 'dota2' ? 'DOTA 2' : 'LOL';
             const isLive = match.status === 'live';
-
-            // Team logo: use image URL if available, else emoji
-            const teamLogoA = match.teamA.imageUrl
-                ? `<img src="${match.teamA.imageUrl}" alt="${match.teamA.name}" class="es-team-img" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">`
-                : '';
-            const teamLogoB = match.teamB.imageUrl
-                ? `<img src="${match.teamB.imageUrl}" alt="${match.teamB.name}" class="es-team-img" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">`
-                : '';
+            const hasRealResult = match.result && match.isReal;
 
             return `
                 <div class="es-match-card glass-card ${isFinished ? 'finished' : ''} ${isLive ? 'live' : ''}" 
                      data-match-id="${match.id}" onclick="viewEsMatch('${match.id}')">
-                    <div class="es-match-top">
-                        <span class="es-game-tag ${gameTag}">${gameName}</span>
-                        ${match.league ? `<span class="es-league-tag">${match.league}</span>` : ''}
-                        <span class="es-match-time">${isLive ? '🔴 LIVE' : match.time}</span>
-                        ${rec.action === 'BET' && !isFinished ? '<span class="es-qualified-badge">🎯 VÀO LỆNH</span>' : ''}
+                    <div class="es-match-header">
+                        <div class="es-match-tags">
+                            <span class="es-game-tag ${gameTag}">${gameName}</span>
+                            ${match.league ? `<span class="es-league-tag">${match.league}</span>` : ''}
+                            ${match.isReal ? '<span class="es-real-badge">📡 REAL</span>' : ''}
+                        </div>
+                        <div class="es-match-meta">
+                            <span class="es-match-time">${isLive ? '🔴 LIVE' : match.time}</span>
+                            ${rec.action === 'BET' && !isFinished && isToday ? '<span class="es-qualified-badge">🎯 VÀO LỆNH</span>' : ''}
+                        </div>
                     </div>
                     <div class="es-teams">
                         <div class="es-team">
-                            ${teamLogoA}<span class="es-team-logo">${match.teamA.logo}</span>
+                            <span class="es-team-logo">${match.teamA.logo}</span>
                             <span class="es-team-name">${match.teamA.name}</span>
+                            <span class="es-team-elo">Elo ${match.teamA.elo}</span>
                         </div>
-                        <div class="es-vs">VS</div>
+                        <div class="es-vs-block">
+                            <div class="es-vs">VS</div>
+                            ${hasRealResult ? `<div class="es-score-final">${match.result.kills} kills │ ${match.result.duration}p</div>` : ''}
+                        </div>
                         <div class="es-team">
-                            ${teamLogoB}<span class="es-team-logo">${match.teamB.logo}</span>
+                            <span class="es-team-logo">${match.teamB.logo}</span>
                             <span class="es-team-name">${match.teamB.name}</span>
+                            <span class="es-team-elo">Elo ${match.teamB.elo}</span>
                         </div>
                     </div>
-                    ${renderMatchBadge(rec, bet)}
+                    ${renderMatchBadge(rec, bet, isToday)}
                 </div>`;
         }).join('');
     }
 
-    function renderMatchBadge(rec, bet) {
+    function renderMatchBadge(rec, bet, isToday) {
         if (bet && bet.result != null) {
             const won = bet.result === 'win';
-            const parts = [`Mạng ${bet.matchResult?.kills || '—'}`, `Trụ ${bet.matchResult?.towers || '—'}`, `${bet.matchResult?.duration || '—'}p`];
-            if (bet.matchResult?.dragons != null) parts.push(`Rồng ${bet.matchResult.dragons}`);
             return `<div class="es-rec-badge ${won ? 'es-rec-win' : 'es-rec-loss'}">
                 ${won ? '✅ THẮNG' : '❌ THUA'} │ ${bet.betLabel}: ${bet.pickLabel} │ ${bet.pnl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(bet.pnl))}
-                <div class="es-rec-reason">${parts.join(' │ ')}</div>
             </div>`;
         }
         if (bet && bet.result === null) {
             return `<div class="es-rec-badge es-rec-pending">⏳ Đang thi đấu... ₫${EsportsAnalyzer.fmtFull(bet.amount)}</div>`;
         }
-        if (rec.action === 'BET') {
+        if (rec.action === 'BET' && isToday) {
             const tc = rec.confTier === 'elite' ? 'es-rec-elite' : rec.confTier === 'high' ? 'es-rec-high' : 'es-rec-medium';
             return `<div class="es-rec-badge ${tc}">
                 <div class="es-rec-header">🔮 ${rec.betLabel}: ${rec.pickLabel}</div>
                 <div class="es-rec-detail">P=${(rec.probability * 100).toFixed(0)}% │ Edge=+${(rec.edge * 100).toFixed(1)}% │ Kelly=${(rec.kelly * 100).toFixed(1)}% │ ₫${EsportsAnalyzer.fmt(rec.amount)}</div>
             </div>`;
         }
-        return '<div class="es-rec-badge es-rec-skip">📊 Không đủ edge — Theo dõi</div>';
+        if (rec.action === 'BET') {
+            return `<div class="es-rec-badge es-rec-past">📊 P=${(rec.probability * 100).toFixed(0)}% Edge=+${(rec.edge * 100).toFixed(1)}%</div>`;
+        }
+        return '<div class="es-rec-badge es-rec-skip">Không đủ edge — Theo dõi</div>';
     }
 
     // ===== AUTO-PLAY =====
     function renderAutoButton() {
         const btn = document.getElementById('esAutoBtn');
         if (!btn) return;
+        const isToday = esState.viewingDate === EsportsAnalyzer.todayStr();
+        if (!isToday) { btn.style.display = 'none'; return; }
+        btn.style.display = 'block';
+
         const pending = currentMatches.filter(m => {
             const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital);
             return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
@@ -255,20 +316,14 @@
             await delay(1500);
         }
 
-        isAutoRunning = false; esState.autoRunComplete = true;
+        isAutoRunning = false;
         EsportsAnalyzer.saveState(esState); renderAll();
         const tb = esState.bets.filter(b => b.timestamp?.startsWith(EsportsAnalyzer.todayStr()) && b.result !== null);
         const pl = tb.reduce((s, b) => s + (b.pnl || 0), 0);
-        window.showToast?.(`🏆 Hoàn thành! P&L: ${pl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(pl))}`, pl >= 0 ? 'success' : 'error');
+        window.showToast?.(`🏆 P&L: ${pl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(pl))}`, pl >= 0 ? 'success' : 'error');
     }
 
-    function highlightCard(id, state) {
-        const c = document.querySelector(`[data-match-id="${id}"]`);
-        if (!c) return;
-        c.classList.remove('betting', 'win', 'loss');
-        c.classList.add(state);
-        c.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    function highlightCard(id, state) { const c = document.querySelector(`[data-match-id="${id}"]`); if (!c) return; c.classList.remove('betting', 'win', 'loss'); c.classList.add(state); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     // ===== TIMELINE =====
@@ -276,8 +331,8 @@
         const container = document.getElementById('esTodayHistory');
         const list = document.getElementById('esBetList');
         if (!container || !list) return;
-        const today = EsportsAnalyzer.todayStr();
-        const tb = esState.bets.filter(b => b.timestamp?.startsWith(today));
+        const viewing = esState.viewingDate || EsportsAnalyzer.todayStr();
+        const tb = esState.bets.filter(b => b.timestamp?.startsWith(viewing));
         if (tb.length === 0) { container.style.display = 'none'; return; }
         container.style.display = 'block';
         let runPL = 0;
@@ -287,8 +342,7 @@
             const cls = b.result === 'win' ? 'es-win' : b.result === 'loss' ? 'es-loss' : 'es-pending-text';
             const icon = b.result === 'win' ? '✅' : b.result === 'loss' ? '❌' : '⏳';
             if (b.result) runPL += b.pnl;
-            const rp = b.result ? `${runPL >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmt(Math.abs(runPL))}` : '—';
-            return `<div class="es-bet-row"><div class="es-bet-match">#${i + 1} ${label}</div><div class="es-bet-info">${b.betLabel}: ${b.pickLabel}</div><div class="es-bet-amount">₫${EsportsAnalyzer.fmt(b.amount)}</div><div class="es-bet-result ${cls}">${icon}</div><div class="es-bet-pnl ${cls}">${b.result ? ((b.pnl >= 0 ? '+' : '') + '₫' + EsportsAnalyzer.fmtFull(Math.abs(b.pnl))) : '—'}</div><div class="es-bet-running ${runPL >= 0 ? 'es-win' : 'es-loss'}">${rp}</div></div>`;
+            return `<div class="es-bet-row"><div class="es-bet-match">#${i + 1} ${label}</div><div class="es-bet-info">${b.betLabel}: ${b.pickLabel}</div><div class="es-bet-amount">₫${EsportsAnalyzer.fmt(b.amount)}</div><div class="es-bet-result ${cls}">${icon}</div><div class="es-bet-pnl ${cls}">${b.result ? ((b.pnl >= 0 ? '+' : '') + '\u20AB' + EsportsAnalyzer.fmtFull(Math.abs(b.pnl))) : '—'}</div><div class="es-bet-running ${runPL >= 0 ? 'es-win' : 'es-loss'}">${b.result ? ((runPL >= 0 ? '+' : '') + '\u20AB' + EsportsAnalyzer.fmt(Math.abs(runPL))) : '—'}</div></div>`;
         }).join('');
     }
 
@@ -327,10 +381,9 @@
         const body = document.getElementById('esModalBody');
 
         body.innerHTML = `
-            ${match.league ? `<div class="es-modal-league">🏆 ${match.league} ${match.tournament ? '— ' + match.tournament : ''}</div>` : ''}
+            ${match.league ? `<div class="es-modal-league">🏆 ${match.league} ${match.isReal ? '— 📡 Real Data' : ''}</div>` : ''}
             <div class="es-modal-teams">
                 <div class="es-modal-team">
-                    ${match.teamA.imageUrl ? `<img src="${match.teamA.imageUrl}" class="es-modal-team-img" onerror="this.style.display='none'">` : ''}
                     <span class="es-modal-logo">${match.teamA.logo}</span>
                     <span class="es-modal-name">${match.teamA.name}</span>
                     <span class="es-modal-region">${match.teamA.region} │ Elo ${match.teamA.elo}</span>
@@ -338,7 +391,6 @@
                 </div>
                 <div class="es-modal-vs">VS</div>
                 <div class="es-modal-team">
-                    ${match.teamB.imageUrl ? `<img src="${match.teamB.imageUrl}" class="es-modal-team-img" onerror="this.style.display='none'">` : ''}
                     <span class="es-modal-logo">${match.teamB.logo}</span>
                     <span class="es-modal-name">${match.teamB.name}</span>
                     <span class="es-modal-region">${match.teamB.region} │ Elo ${match.teamB.elo}</span>
@@ -349,18 +401,16 @@
             <div class="es-modal-section"><div class="es-modal-label">H2H Record</div><div class="es-modal-h2h"><span>${match.teamA.name}: ${h2h.wins}W</span><span class="es-h2h-total">${h2h.total} trận</span><span>${match.teamB.name}: ${h2h.losses}W</span></div></div>
             <div class="es-modal-section"><div class="es-modal-label">Phân tích kèo</div>${match.bets.map(b => { const e = b.pick ? ((b.pickProb * (b.odds - 1) - (1 - b.pickProb)) * 100).toFixed(1) : '0'; return `<div class="es-bet-analysis"><span class="es-bet-type">${b.label}</span><span class="es-bet-line">Line: ${b.line}</span><span class="es-bet-odds">Odds: ${b.odds.toFixed(2)}</span><span class="es-bet-prob">Tài: ${(b.overProb * 100).toFixed(0)}% │ Xỉu: ${(b.underProb * 100).toFixed(0)}%</span>${b.pick ? `<span class="es-bet-pick ${Number(e) > 5 ? 'es-win' : ''}">→ ${b.pick === 'over' ? 'Tài' : 'Xỉu'} (Edge: +${e}%)</span>` : '<span class="es-bet-pick">Không đủ edge</span>'}</div>`; }).join('')}</div>
             ${rec.action === 'BET' ? `<div class="es-modal-section es-modal-rec"><div class="es-modal-label">🔮 Khuyến nghị</div><div class="es-rec-summary"><div><strong>${rec.betLabel}: ${rec.pickLabel}</strong></div><div>Mức cược: <strong>₫${EsportsAnalyzer.fmtFull(rec.amount)}</strong> (${(rec.kelly * 100).toFixed(1)}% Kelly)</div><div>${rec.reason}</div></div></div>` : ''}
-            ${match.result ? `<div class="es-modal-section"><div class="es-modal-label">Kết quả</div><div class="es-result-grid"><div class="es-result-item"><span>Mạng</span><strong>${match.result.kills}</strong></div><div class="es-result-item"><span>Trụ</span><strong>${match.result.towers}</strong></div><div class="es-result-item"><span>Thời gian</span><strong>${match.result.duration}p</strong></div>${match.result.dragons != null ? `<div class="es-result-item"><span>Rồng</span><strong>${match.result.dragons}</strong></div>` : ''}</div></div>` : ''}
+            ${match.result ? `<div class="es-modal-section"><div class="es-modal-label">Kết quả ${match.isReal ? 'thực' : 'giả lập'}</div><div class="es-result-grid"><div class="es-result-item"><span>Mạng</span><strong>${match.result.kills}</strong></div><div class="es-result-item"><span>Trụ</span><strong>${match.result.towers}</strong></div><div class="es-result-item"><span>Thời gian</span><strong>${match.result.duration}p</strong></div>${match.result.dragons != null ? `<div class="es-result-item"><span>Rồng</span><strong>${match.result.dragons}</strong></div>` : ''}</div></div>` : ''}
             ${bet ? `<div class="es-modal-section"><div class="es-modal-label">Lệnh đặt</div><div class="es-bet-record ${bet.result === 'win' ? 'es-win' : bet.result === 'loss' ? 'es-loss' : ''}"><div>${bet.betLabel}: ${bet.pickLabel} @ ${bet.odds.toFixed(2)}</div><div>₫${EsportsAnalyzer.fmtFull(bet.amount)}</div>${bet.result ? `<div>${bet.result === 'win' ? '✅ Thắng' : '❌ Thua'} — ${bet.pnl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(bet.pnl))}</div>` : '<div>⏳ Đang thi đấu...</div>'}</div></div>` : ''}`;
 
         document.getElementById('esMatchModal').classList.remove('hidden');
     };
     window.closeEsMatchModal = function () { document.getElementById('esMatchModal').classList.add('hidden'); };
 
-    // ===== SETTINGS (with API token) =====
+    // ===== SETTINGS =====
     window.openEsSettings = function () {
         document.getElementById('esSettCapital').value = EsportsAnalyzer.fmtFull(esState.initialCapital);
-        const tokenInput = document.getElementById('esSettToken');
-        if (tokenInput) tokenInput.value = esState.apiToken || '';
         document.getElementById('esSettingsModal').classList.remove('hidden');
     };
     window.closeEsSettings = function () { document.getElementById('esSettingsModal').classList.add('hidden'); };
@@ -370,18 +420,11 @@
         const diff = val - esState.initialCapital;
         esState.initialCapital = val;
         esState.capital += diff;
-        const tokenInput = document.getElementById('esSettToken');
-        if (tokenInput) {
-            const newToken = tokenInput.value.trim();
-            if (newToken !== (esState.apiToken || '')) {
-                esState.apiToken = newToken;
-                esState.dailyMatches = {};  // Clear cache to force re-fetch
-            }
-        }
+        esState.matchCache = {};
         EsportsAnalyzer.saveState(esState);
         closeEsSettings();
-        initEsports(); // Re-fetch with new token
-        window.showToast?.('Đã lưu cài đặt' + (esState.apiToken ? ' — Đang tải trận thực...' : ''), 'success');
+        initEsports();
+        window.showToast?.('Đã lưu cài đặt', 'success');
     };
     window.resetEsports = function () {
         if (!confirm('Xóa toàn bộ dữ liệu?')) return;
