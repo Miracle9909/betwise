@@ -2794,3 +2794,80 @@ body {
         align-self: flex-end;
     }
 }
+
+/* ===== MATCH SELECTION CHECKBOX ===== */
+.es-select-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.es-select-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.es-select-btn:hover {
+    background: rgba(87, 188, 255, 0.15);
+    color: #57bcff;
+    border-color: rgba(87, 188, 255, 0.3);
+}
+
+.es-selected-count {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-left: auto;
+}
+
+.es-checkbox {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    margin-right: 4px;
+}
+
+.es-checkbox input {
+    display: none;
+}
+
+.es-checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.es-checkbox input:checked+.es-checkmark {
+    background: rgba(87, 188, 255, 0.25);
+    border-color: #57bcff;
+}
+
+.es-checkbox input:checked+.es-checkmark::after {
+    content: '✓';
+    color: #57bcff;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.es-match-card.selected {
+    border: 1px solid rgba(87, 188, 255, 0.4) !important;
+    box-shadow: 0 0 15px rgba(87, 188, 255, 0.1);
+    background: rgba(87, 188, 255, 0.04);
+}

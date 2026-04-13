@@ -93,9 +93,30 @@ const EsportsAnalyzer = (() => {
     // Combined for lookups
     const TOP_TEAMS = { ...TOP_DOTA2, ...TOP_LOL };
 
+    // ===== TIER 1 LEAGUES — always include matches from these =====
+    const TIER1_DOTA_LEAGUES = [
+        'dreamleague', 'esl one', 'the international', 'dpc', 'riyadh masters',
+        'bali major', 'berlin major', 'pgl', 'betboom dacha', 'fissure',
+        'elite league', 'esl pro', 'blast', 'bb dacha', 'european pro league',
+        'dota pit', 'dao', 'igames', 'cda-fdc', 'wcg'
+    ];
+    const TIER1_LOL_LEAGUES = [
+        'lck', 'lpl', 'lec', 'lcs', 'lco', 'cblol', 'ljl', 'pcs', 'vcs',
+        'worlds', 'msi', 'all-star', 'lla', 'lfl', 'prime league',
+        'superliga', 'tcl', 'lcl', 'arabian', 'pacific', 'challengers',
+        'emea', 'americas', 'first stand'
+    ];
+
     function isTopTeam(name) {
         if (!name) return false;
         return !!TOP_TEAMS[name.toLowerCase().trim()];
+    }
+
+    function isTier1League(leagueName, game) {
+        if (!leagueName) return false;
+        const lower = leagueName.toLowerCase();
+        const list = game === 'dota2' ? TIER1_DOTA_LEAGUES : TIER1_LOL_LEAGUES;
+        return list.some(t => lower.includes(t));
     }
 
     // ===== GMT+7 HELPERS =====
@@ -232,9 +253,10 @@ const EsportsAnalyzer = (() => {
             fetchLolMatches(dateStr),
         ]);
 
-        // Filter Dota 2 for top 30 teams
+        // Filter Dota 2: Top 30 teams OR Tier 1 leagues
         const topDota = rawDota.filter(m =>
-            isTopTeam(m.radiant_name) || isTopTeam(m.dire_name)
+            isTopTeam(m.radiant_name) || isTopTeam(m.dire_name) ||
+            isTier1League(m.league_name, 'dota2')
         );
 
         // Dedup Dota by series
@@ -248,11 +270,11 @@ const EsportsAnalyzer = (() => {
         }
         const dotaMatches = deduped.map((m, i) => mapOpenDotaToMatch(m, i));
 
-        // Map LoL API data — filter for top 30 teams
+        // Map LoL API data — Top 30 teams OR Tier 1 leagues
         let lolMatches;
         if (rawLol && rawLol.length > 0) {
             lolMatches = rawLol
-                .filter(m => isTopTeam(m.teamA?.name) || isTopTeam(m.teamB?.name))
+                .filter(m => isTopTeam(m.teamA?.name) || isTopTeam(m.teamB?.name) || isTier1League(m.league, 'lol'))
                 .map((m, i) => mapLolApiToMatch(m, i, dateStr));
         } else {
             lolMatches = generateLolFallback(dateStr);
@@ -515,6 +537,6 @@ const EsportsAnalyzer = (() => {
         winProbability, simulateResult, resolveBet, fetchMatchResult,
         calcDailyPL, calcWeeklyPL, calcWinRate, calcStats, getDailyHistory,
         todayStr, formatDate, shiftDate, fmt, fmtFull, getH2H, formScore, eloWP,
-        MIN_CONFIDENCE, MIN_EDGE, isTopTeam, toGMT7Time,
+        MIN_CONFIDENCE, MIN_EDGE, isTopTeam, isTier1League, toGMT7Time, hashCode,
     };
 })();

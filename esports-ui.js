@@ -9,6 +9,7 @@
     let isAutoRunning = false;
     let autoRunAbort = false;
     let dataSource = 'loading';
+    let selectedMatches = new Set(); // User-selected matches for betting
 
     // ===== INIT =====
     async function initEsports() {
@@ -178,14 +179,21 @@
         if (currentMatches.length === 0) {
             container.innerHTML = `<div class="empty-state">
                 <div class="es-empty-icon">📭</div>
-                <p>Không có trận đấu top 50 trong ngày ${EsportsAnalyzer.formatDate(esState.viewingDate)}</p>
-                <p style="opacity:0.5;font-size:12px;">OpenDota API chỉ lưu khoảng 100 trận gần nhất</p>
+                <p>Không có trận hợp lệ ngày ${EsportsAnalyzer.formatDate(esState.viewingDate)}</p>
+                <p style="opacity:0.5;font-size:12px;">Top 30 teams + Tier 1 leagues (LCK, LPL, LEC, DPC, PGL...)</p>
             </div>`;
             return;
         }
 
-        container.innerHTML = currentMatches.map(match => {
-            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital);
+        // Select-all controls
+        const selectControls = isToday ? `<div class="es-select-controls">
+            <button class="es-select-btn" onclick="selectAllMatches()">☑ Chọn tất cả</button>
+            <button class="es-select-btn" onclick="deselectAllMatches()">☐ Bỏ chọn</button>
+            <span class="es-selected-count">${selectedMatches.size}/${currentMatches.filter(m => m.status === 'upcoming').length} đã chọn</span>
+        </div>` : '';
+
+        container.innerHTML = selectControls + currentMatches.map(match => {
+            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
             const bet = esState.bets.find(b => b.matchId === match.id);
             const isFinished = match.status === 'finished' || bet?.result != null;
             const gameTag = match.game === 'dota2' ? 'dota2' : 'lol';
@@ -197,23 +205,30 @@
             const seriesFinished = isFinished && hasSeriesScore;
             const aWon = seriesFinished && match.scoreA > match.scoreB;
             const bWon = seriesFinished && match.scoreB > match.scoreA;
+            const isSelected = selectedMatches.has(match.id);
+            const isUpcoming = match.status === 'upcoming';
+            const wp = EsportsAnalyzer.winProbability(match.teamA, match.teamB);
 
             return `
-                <div class="es-match-card glass-card ${isFinished ? 'finished' : ''} ${isLive ? 'live' : ''}" 
-                     data-match-id="${match.id}" onclick="viewEsMatch('${match.id}')">
+                <div class="es-match-card glass-card ${isFinished ? 'finished' : ''} ${isLive ? 'live' : ''} ${isSelected ? 'selected' : ''}" 
+                     data-match-id="${match.id}">
                     <div class="es-match-header">
                         <div class="es-match-tags">
+                            ${isToday && isUpcoming ? `<label class="es-checkbox" onclick="event.stopPropagation()">
+                                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleMatchSelection('${match.id}')">
+                                <span class="es-checkmark"></span>
+                            </label>` : ''}
                             <span class="es-game-tag ${gameTag}">${gameName}</span>
                             ${bo > 1 ? `<span class="es-bo-badge">BO${bo}</span>` : ''}
                             ${match.league ? `<span class="es-league-tag">${match.league}</span>` : ''}
-                            ${match.isReal ? '<span class="es-real-badge">📡 REAL</span>' : ''}
+                            ${match.isReal ? '<span class="es-real-badge">📡</span>' : ''}
                         </div>
-                        <div class="es-match-meta">
+                        <div class="es-match-meta" onclick="viewEsMatch('${match.id}')">
                             <span class="es-match-time">${isLive ? '🔴 LIVE' : match.time}</span>
-                            ${rec.action === 'BET' && !isFinished && isToday ? '<span class="es-qualified-badge">🎯 VÀO LỆNH</span>' : ''}
+                            ${rec.action === 'BET' && !isFinished && isToday ? `<span class="es-qualified-badge">WR ${(wp * 100).toFixed(0)}%</span>` : ''}
                         </div>
                     </div>
-                    <div class="es-teams">
+                    <div class="es-teams" onclick="viewEsMatch('${match.id}')">
                         <div class="es-team ${aWon ? 'es-team-winner' : ''}">
                             <span class="es-team-logo">${match.teamA.logo}</span>
                             <span class="es-team-name">${match.teamA.name}</span>
@@ -260,6 +275,24 @@
         return '<div class="es-rec-badge es-rec-skip">Không đủ edge — Theo dõi</div>';
     }
 
+    // ===== MATCH SELECTION =====
+    window.toggleMatchSelection = function (matchId) {
+        if (selectedMatches.has(matchId)) {
+            selectedMatches.delete(matchId);
+        } else {
+            selectedMatches.add(matchId);
+        }
+        renderAll();
+    };
+    window.selectAllMatches = function () {
+        currentMatches.filter(m => m.status === 'upcoming').forEach(m => selectedMatches.add(m.id));
+        renderAll();
+    };
+    window.deselectAllMatches = function () {
+        selectedMatches.clear();
+        renderAll();
+    };
+
     // ===== AUTO-PLAY =====
     function renderAutoButton() {
         const btn = document.getElementById('esAutoBtn');
@@ -268,15 +301,21 @@
         if (!isToday) { btn.style.display = 'none'; return; }
         btn.style.display = 'block';
 
-        const pending = currentMatches.filter(m => {
-            const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital);
-            return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
-        });
+        // Use selected matches if any, otherwise all upcoming with edge
+        const betCandidates = selectedMatches.size > 0
+            ? currentMatches.filter(m => selectedMatches.has(m.id) && m.status === 'upcoming' && !esState.bets.find(b => b.matchId === m.id))
+            : currentMatches.filter(m => {
+                if (m.status !== 'upcoming') return false;
+                const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
+                return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
+            });
 
         if (isAutoRunning) {
-            btn.innerHTML = '⏸ Đang thi đấu...'; btn.className = 'es-auto-btn running'; btn.onclick = () => { autoRunAbort = true; };
-        } else if (pending.length > 0) {
-            btn.innerHTML = `▶ Bắt đầu thi đấu (${pending.length} trận)`; btn.className = 'es-auto-btn ready'; btn.onclick = () => startAutoRun();
+            btn.innerHTML = '⏸ Đang thi đấu... (click để dừng)'; btn.className = 'es-auto-btn running'; btn.onclick = () => { autoRunAbort = true; };
+        } else if (betCandidates.length > 0) {
+            const label = selectedMatches.size > 0 ? `▶ Vào lệnh ${betCandidates.length} trận đã chọn` : `▶ Auto-bet (${betCandidates.length} trận)`;
+            btn.innerHTML = label + ` <span style="font-size:10px;opacity:0.7">(max 3 cùng lúc)</span>`;
+            btn.className = 'es-auto-btn ready'; btn.onclick = () => startAutoRun();
         } else {
             const tb = esState.bets.filter(b => b.timestamp?.startsWith(EsportsAnalyzer.todayStr()) && b.result !== null);
             if (tb.length > 0) {
@@ -294,74 +333,91 @@
         if (isAutoRunning) return;
         isAutoRunning = true; autoRunAbort = false; renderAutoButton();
 
-        // Only bet on UPCOMING matches — skip live and finished
-        const pending = currentMatches.filter(m => {
-            if (m.status !== 'upcoming') return false; // KEY: only upcoming
-            const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
-            return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
+        // Determine candidates: selected or all upcoming with edge
+        let candidates = selectedMatches.size > 0
+            ? currentMatches.filter(m => selectedMatches.has(m.id) && m.status === 'upcoming' && !esState.bets.find(b => b.matchId === m.id))
+            : currentMatches.filter(m => {
+                if (m.status !== 'upcoming') return false;
+                const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
+                return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
+            });
+
+        // Sort by win probability (highest first)
+        candidates.sort((a, b) => {
+            const wpA = EsportsAnalyzer.winProbability(a.teamA, a.teamB);
+            const wpB = EsportsAnalyzer.winProbability(b.teamA, b.teamB);
+            return Math.abs(wpB - 0.5) - Math.abs(wpA - 0.5); // Bigger edge first
         });
 
-        if (pending.length === 0) {
-            window.showToast?.('⏳ Không có trận upcoming đủ điều kiện', 'info');
+        if (candidates.length === 0) {
+            window.showToast?.('⏳ Không có trận đủ điều kiện', 'info');
             isAutoRunning = false; renderAll();
             return;
         }
 
-        window.showToast?.(`🎯 Tìm thấy ${pending.length} trận upcoming — bắt đầu đặt lệnh`, 'info');
+        // Max 3 concurrent bets
+        const MAX_CONCURRENT = 3;
+        const activeBets = esState.bets.filter(b => b.result === null).length;
+        const slotsAvailable = Math.max(0, MAX_CONCURRENT - activeBets);
+        candidates = candidates.slice(0, slotsAvailable);
 
-        for (const match of pending) {
+        if (candidates.length === 0) {
+            window.showToast?.('⚠️ Đã đạt giới hạn 3 kèo cùng lúc', 'warning');
+            isAutoRunning = false; renderAll();
+            return;
+        }
+
+        window.showToast?.(`🎯 Vào lệnh ${candidates.length} trận (ưu tiên WR cao nhất, max ${MAX_CONCURRENT})`, 'info');
+
+        for (const match of candidates) {
             if (autoRunAbort) break;
             const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
-            if (rec.action !== 'BET') continue;
+            if (rec.action !== 'BET' && selectedMatches.size === 0) continue;
 
-            // Place bet
-            const betRecord = { matchId: match.id, betType: rec.betType, betLabel: rec.betLabel, pick: rec.pick, pickLabel: rec.pickLabel, line: rec.bestBet.line, amount: rec.amount, odds: rec.odds, probability: rec.probability, edge: rec.edge, result: null, pnl: 0, matchResult: null, timestamp: new Date().toISOString() };
+            // Place bet — for selected matches, force bet even if edge is marginal
+            const betAmount = rec.action === 'BET' ? rec.amount : Math.round(esState.capital * 0.03 / 10000) * 10000;
+            const betRecord = {
+                matchId: match.id,
+                betType: rec.betType || match.bets[0]?.type || 'kill_ou',
+                betLabel: rec.betLabel || match.bets[0]?.label || 'Tài/Xỉu Mạng',
+                pick: rec.pick || match.bets[0]?.pick || 'over',
+                pickLabel: rec.pickLabel || (match.bets[0]?.pick === 'over' ? `Tài (>${match.bets[0]?.line})` : `Xỉu (<${match.bets[0]?.line})`),
+                line: rec.bestBet?.line || match.bets[0]?.line || 45.5,
+                amount: betAmount,
+                odds: rec.odds || match.bets[0]?.odds || 1.85,
+                probability: rec.probability || 0.55,
+                edge: rec.edge || 0.05,
+                result: null, pnl: 0, matchResult: null,
+                timestamp: new Date().toISOString()
+            };
             esState.bets.push(betRecord);
             EsportsAnalyzer.saveState(esState); renderAll();
             highlightCard(match.id, 'betting');
-            window.showToast?.(`🎯 Đặt ₫${EsportsAnalyzer.fmtFull(rec.amount)} — ${rec.betLabel}: ${rec.pickLabel} (Adaptive Kelly)`, 'info');
+            const wp = EsportsAnalyzer.winProbability(match.teamA, match.teamB);
+            window.showToast?.(`🎯 ${match.teamA.name} vs ${match.teamB.name} — ₫${EsportsAnalyzer.fmtFull(betAmount)} (WR ${(wp * 100).toFixed(0)}%)`, 'info');
             await delay(2000);
             if (autoRunAbort) break;
 
-            // Poll for real result — max 4 hours, check every 60s
+            // Poll for real result
             let result = null;
-            const maxPolls = 240; // 4h at 60s intervals
-            let pollCount = 0;
-
-            // First check if match already has result
             result = EsportsAnalyzer.simulateResult(match);
-            if (result) {
-                // Match already finished — use real result
-            } else if (match.isReal) {
-                // Real match — poll API for result
-                window.showToast?.('⏳ Chờ kết quả thực từ API...', 'info');
-                while (!result && pollCount < maxPolls && !autoRunAbort) {
-                    await delay(60000); // Wait 60 seconds
+            if (!result && match.isReal) {
+                window.showToast?.('⏳ Chờ kết quả thực...', 'info');
+                let pollCount = 0;
+                while (!result && pollCount < 240 && !autoRunAbort) {
+                    await delay(60000);
                     pollCount++;
                     result = await EsportsAnalyzer.fetchMatchResult(match);
-                    if (pollCount % 5 === 0) {
-                        window.showToast?.(`⏳ Đã chờ ${pollCount} phút — vẫn đang polling...`, 'info');
-                    }
+                    if (pollCount % 5 === 0) window.showToast?.(`⏳ Đã chờ ${pollCount}p...`, 'info');
                 }
-                if (!result && !autoRunAbort) {
-                    // Timeout — mark as pending, skip to next
-                    window.showToast?.('⏰ Timeout chờ kết quả — chuyển trận tiếp', 'warning');
-                    continue;
-                }
-            } else {
-                // Non-real match — simulate as fallback
+                if (!result && !autoRunAbort) { window.showToast?.('⏰ Timeout — bỏ qua', 'warning'); continue; }
+            } else if (!result) {
                 const mc = EsportsAnalyzer.analyzeBetTypes(match.teamA, match.teamB, match.game);
-                result = {
-                    kills: Math.round(mc.mc.kills.mean),
-                    towers: Math.round(mc.mc.towers.mean),
-                    duration: Math.round(mc.mc.duration.mean),
-                };
+                result = { kills: Math.round(mc.mc.kills.mean), towers: Math.round(mc.mc.towers.mean), duration: Math.round(mc.mc.duration.mean) };
                 if (mc.mc.dragons) result.dragons = Math.round(mc.mc.dragons.mean);
             }
-
             if (autoRunAbort || !result) break;
 
-            // Resolve bet with real/simulated result
             const resolution = EsportsAnalyzer.resolveBet(betRecord, result);
             betRecord.result = resolution.won ? 'win' : 'loss';
             betRecord.pnl = resolution.pnl;
@@ -369,17 +425,16 @@
             esState.capital += resolution.pnl;
             match.status = 'finished'; match.result = result;
 
-            // Update adaptive streak
-            if (resolution.won) {
-                esState.streak = Math.max(1, (esState.streak || 0) + 1);
-            } else {
-                esState.streak = Math.min(-1, (esState.streak || 0) - 1);
-            }
+            // Adaptive streak update
+            esState.streak = resolution.won ? Math.max(1, (esState.streak || 0) + 1) : Math.min(-1, (esState.streak || 0) - 1);
             esState.sessionPL = (esState.sessionPL || 0) + resolution.pnl;
 
             EsportsAnalyzer.saveState(esState); renderAll();
             highlightCard(match.id, resolution.won ? 'win' : 'loss');
-            window.showToast?.(resolution.won ? `✅ THẮNG +₫${EsportsAnalyzer.fmtFull(resolution.pnl)}! (Streak: ${esState.streak})` : `❌ Thua -₫${EsportsAnalyzer.fmtFull(Math.abs(resolution.pnl))} (Streak: ${esState.streak})`, resolution.won ? 'success' : 'error');
+            window.showToast?.(resolution.won
+                ? `✅ THẮNG +₫${EsportsAnalyzer.fmtFull(resolution.pnl)} (Streak: ${esState.streak})`
+                : `❌ Thua -₫${EsportsAnalyzer.fmtFull(Math.abs(resolution.pnl))} (Streak: ${esState.streak})`,
+                resolution.won ? 'success' : 'error');
             await delay(1500);
         }
 
