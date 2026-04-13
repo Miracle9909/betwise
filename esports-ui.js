@@ -69,6 +69,8 @@
     }
 
     function renderAll() {
+        trackPredictions();
+        resolvePredictions();
         renderCapital();
         renderDataSource();
         renderMatchList();
@@ -76,6 +78,54 @@
         renderStats();
         renderWeekly();
         renderAutoButton();
+    }
+
+    // ===== PREDICTION TRACKING =====
+    function trackPredictions() {
+        if (!esState.predictions) esState.predictions = [];
+        for (const match of currentMatches) {
+            if (esState.predictions.find(p => p.matchId === match.id)) continue;
+            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0);
+            if (!rec.bestBet) continue;
+            esState.predictions.push({
+                matchId: match.id,
+                matchLabel: `${match.teamA.name} vs ${match.teamB.name}`,
+                game: match.game,
+                league: match.league || '',
+                betType: rec.betType || rec.bestBet.type,
+                pick: rec.pick || rec.bestBet.pick,
+                line: rec.bestBet.line,
+                probability: rec.probability || rec.bestBet.pickProb,
+                edge: rec.edge || 0,
+                action: rec.action, // 'BET' or 'SKIP'
+                hasBet: !!esState.bets.find(b => b.matchId === match.id),
+                resolved: false,
+                won: null,
+                actual: null,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        EsportsAnalyzer.saveState(esState);
+    }
+
+    function resolvePredictions() {
+        if (!esState.predictions) return;
+        let changed = false;
+        for (const pred of esState.predictions) {
+            if (pred.resolved) continue;
+            const match = currentMatches.find(m => m.id === pred.matchId);
+            if (!match) continue;
+            const isFinished = match.status === 'finished';
+            const result = match.result;
+            if (!isFinished || !result) continue;
+            const res = EsportsAnalyzer.resolvePrediction(pred, result);
+            pred.resolved = true;
+            pred.won = res.won;
+            pred.actual = res.actual;
+            pred.hasBet = !!esState.bets.find(b => b.matchId === pred.matchId);
+            changed = true;
+        }
+        if (changed) EsportsAnalyzer.saveState(esState);
     }
 
     // ===== DATE NAVIGATOR =====
@@ -159,7 +209,20 @@
         wEl.className = 'es-pl-value ' + (wpl >= 0 ? 'es-win' : 'es-loss');
 
         const resolved = esState.bets.filter(b => b.result !== null);
-        el('esWinRate').textContent = resolved.length > 0 ? (wr * 100).toFixed(0) + '%' : '—';
+        el('esWinRate').textContent = resolved.length > 0 ? `${(wr * 100).toFixed(0)}% (${resolved.filter(b => b.result === 'win').length}/${resolved.length})` : '—';
+        if (resolved.length > 0) el('esWinRate').className = 'es-pl-value ' + (wr >= 0.5 ? 'es-win' : 'es-loss');
+
+        // Prediction WR (all predictions including non-bet)
+        const predStats = EsportsAnalyzer.calcPredictionWinRate(esState.predictions || []);
+        const predEl = el('esPredWinRate');
+        if (predEl) {
+            if (predStats.total > 0) {
+                predEl.textContent = `${(predStats.rate * 100).toFixed(0)}% (${predStats.wins}/${predStats.total})`;
+                predEl.className = 'es-pl-value ' + (predStats.rate >= 0.5 ? 'es-win' : 'es-loss');
+            } else {
+                predEl.textContent = '—';
+            }
+        }
 
         const streakEl = el('esStreak');
         if (streakEl && resolved.length > 0) {

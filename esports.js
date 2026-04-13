@@ -527,7 +527,7 @@ const EsportsAnalyzer = (() => {
     }
 
     // ===== STATE =====
-    function defaultState() { return { capital: 10000000, initialCapital: 10000000, bets: [], matchCache: {}, currentDate: todayStr(), viewingDate: todayStr(), streak: 0, sessionPL: 0 }; }
+    function defaultState() { return { capital: 10000000, initialCapital: 10000000, bets: [], predictions: [], matchCache: {}, currentDate: todayStr(), viewingDate: todayStr(), streak: 0, sessionPL: 0 }; }
     function loadState() { try { const r = localStorage.getItem(STORAGE_KEY); if (!r) return defaultState(); return { ...defaultState(), ...JSON.parse(r) }; } catch { return defaultState(); } }
     function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
     function resetState() { localStorage.removeItem(STORAGE_KEY); return defaultState(); }
@@ -538,6 +538,26 @@ const EsportsAnalyzer = (() => {
     function calcWinRate(bets) { const r = bets.filter(b => b.result !== null); return r.length === 0 ? 0 : r.filter(b => b.result === 'win').length / r.length; }
     function calcStats(bets, cap, init) { const r = bets.filter(b => b.result !== null), w = r.filter(b => b.result === 'win').length, pl = r.reduce((s, b) => s + (b.pnl || 0), 0); return { total: r.length, wins: w, losses: r.length - w, winRate: r.length > 0 ? (w / r.length * 100).toFixed(1) : '0', totalPL: pl, roi: init > 0 ? (pl / init * 100).toFixed(1) : '0' }; }
     function getDailyHistory(bets) { const d = {}; for (const b of bets) { if (!b.timestamp || b.result === null) continue; const k = b.timestamp.slice(0, 10); if (!d[k]) d[k] = { date: k, bets: 0, wins: 0, pnl: 0 }; d[k].bets++; if (b.result === 'win') d[k].wins++; d[k].pnl += b.pnl || 0; } return Object.values(d).sort((a, b) => b.date.localeCompare(a.date)); }
+
+    // ===== PREDICTION TRACKING (all matches, not just bets) =====
+    function resolvePrediction(pred, result) {
+        let actual;
+        switch (pred.betType) {
+            case 'kill_ou': actual = result.kills; break;
+            case 'tower_ou': actual = result.towers; break;
+            case 'time_ou': actual = result.duration; break;
+            case 'dragon_ou': actual = result.dragons || 0; break;
+            default: actual = result.kills; break;
+        }
+        const won = pred.pick === 'over' ? actual > pred.line : actual < pred.line;
+        return { won, actual };
+    }
+    function calcPredictionWinRate(predictions) {
+        const resolved = predictions.filter(p => p.resolved);
+        if (resolved.length === 0) return { total: 0, wins: 0, rate: 0 };
+        const wins = resolved.filter(p => p.won).length;
+        return { total: resolved.length, wins, rate: wins / resolved.length };
+    }
 
     // ===== FORMAT =====
     function fmt(n) { if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B'; if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + 'k'; return n.toString(); }
@@ -555,7 +575,7 @@ const EsportsAnalyzer = (() => {
         LINES, TOP_TEAMS, TOP_DOTA2, TOP_LOL,
         loadState, saveState, resetState, defaultState,
         loadMatchesForDate, generateRecommendation, analyzeBetTypes, adaptiveKelly,
-        winProbability, simulateResult, resolveBet, fetchMatchResult,
+        winProbability, simulateResult, resolveBet, fetchMatchResult, resolvePrediction, calcPredictionWinRate,
         calcDailyPL, calcWeeklyPL, calcWinRate, calcStats, getDailyHistory,
         todayStr, formatDate, shiftDate, fmt, fmtFull, getH2H, formScore, eloWP,
         MIN_CONFIDENCE, MIN_EDGE, isTopTeam, isTier1League, toGMT7Time, hashCode,
