@@ -85,7 +85,7 @@
         if (!esState.predictions) esState.predictions = [];
         for (const match of currentMatches) {
             if (esState.predictions.find(p => p.matchId === match.id)) continue;
-            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions);
+            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions, match.teamA, match.teamB, esState.bets);
             if (!rec.bestBet) continue;
             esState.predictions.push({
                 matchId: match.id,
@@ -234,7 +234,7 @@
     }
 
     function renderMatchCard(match, isToday) {
-        const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions);
+        const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions, match.teamA, match.teamB, esState.bets);
         const bet = esState.bets.find(b => b.matchId === match.id);
         const isFinished = match.status === 'finished' || bet?.result != null;
         const gameTag = match.game === 'dota2' ? 'dota2' : 'lol';
@@ -439,7 +439,7 @@
             ? currentMatches.filter(m => selectedMatches.has(m.id) && m.status === 'upcoming' && !esState.bets.find(b => b.matchId === m.id))
             : currentMatches.filter(m => {
                 if (m.status !== 'upcoming') return false;
-                const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions);
+                const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions, m.teamA, m.teamB, esState.bets);
                 return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
             });
 
@@ -471,7 +471,7 @@
             ? currentMatches.filter(m => selectedMatches.has(m.id) && m.status === 'upcoming' && !esState.bets.find(b => b.matchId === m.id))
             : currentMatches.filter(m => {
                 if (m.status !== 'upcoming') return false;
-                const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions);
+                const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions, m.teamA, m.teamB, esState.bets);
                 return rec.action === 'BET' && !esState.bets.find(b => b.matchId === m.id);
             });
 
@@ -504,7 +504,7 @@
 
         for (const match of candidates) {
             if (autoRunAbort) break;
-            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions);
+            const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions, match.teamA, match.teamB, esState.bets);
             if (rec.action !== 'BET' && selectedMatches.size === 0) continue;
 
             // Place bet — for selected matches, force bet even if edge is marginal
@@ -628,7 +628,7 @@
         if (!match) return;
         const h2h = EsportsAnalyzer.getH2H(match.teamA, match.teamB);
         const wp = EsportsAnalyzer.winProbability(match.teamA, match.teamB);
-        const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, 0, 0, esState.predictions);
+        const rec = EsportsAnalyzer.generateRecommendation(match.bets, esState.capital, 0, 0, esState.predictions, match.teamA, match.teamB, esState.bets);
         const bet = esState.bets.find(b => b.matchId === matchId);
         const gameName = match.game === 'dota2' ? 'DOTA 2' : 'LOL';
         const bo = match.bestOf || 1;
