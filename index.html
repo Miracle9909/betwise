@@ -43,14 +43,11 @@
 
         <!-- NAV TABS -->
         <nav class="nav-tabs">
-            <button class="nav-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+            <button class="nav-tab" data-tab="esports" onclick="switchTab('esports')">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                    <path d="M6 11h4M14 11h4M15 6l-3 6 3 6M9 6l3 6-3 6" />
                 </svg>
-                <span>Tổng quan</span>
+                <span>Esports</span>
             </button>
 
             <button class="nav-tab" data-tab="history" onclick="switchTab('history')">
@@ -60,109 +57,8 @@
                 </svg>
                 <span>Lịch sử</span>
             </button>
-            <button class="nav-tab" data-tab="esports" onclick="switchTab('esports')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 11h4M14 11h4M15 6l-3 6 3 6M9 6l3 6-3 6" />
-                </svg>
-                <span>Esports</span>
-            </button>
+
         </nav>
-
-        <!-- ====== DASHBOARD TAB ====== -->
-        <main class="tab-content active" id="tab-dashboard">
-            <!-- Bankroll Card -->
-            <section class="bankroll-card glass-card">
-                <div class="bankroll-label">SỐ VỐN HIỆN TẠI</div>
-                <div class="bankroll-amount" id="bankrollDisplay">₫10,000,000</div>
-                <div class="bankroll-meta">
-                    <span class="profit-badge positive" id="profitBadge">+0.0%</span>
-                    <span class="target-text" id="targetText">Mục tiêu: ₫500,000,000</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 2%"></div>
-                </div>
-            </section>
-
-            <!-- Oracle Recommendation -->
-            <section class="oracle-card glass-card">
-                <div class="oracle-header">
-                    <div class="oracle-icon pulse">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3fff8b" stroke-width="2">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                            <path d="M2 17l10 5 10-5" />
-                            <path d="M2 12l10 5 10-5" />
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="oracle-title">GỢI Ý LỆNH TIẾP THEO</div>
-                        <div class="oracle-subtitle">Dựa trên Kelly Criterion & phân tích chuỗi</div>
-                    </div>
-                </div>
-                <div class="oracle-amount" id="oracleAmount">₫500,000</div>
-                <div class="oracle-details">
-                    <div class="oracle-detail">
-                        <span class="detail-label">Kelly %</span>
-                        <span class="detail-value" id="oracleKelly">5.0%</span>
-                    </div>
-                    <div class="oracle-detail">
-                        <span class="detail-label">Edge</span>
-                        <span class="detail-value" id="oracleConf">—</span>
-                    </div>
-                    <div class="oracle-detail">
-                        <span class="detail-label">Rủi ro</span>
-                        <span class="detail-value risk-low" id="oracleRisk">Thấp</span>
-                    </div>
-                </div>
-                <button class="btn-primary" onclick="switchTab('esports')">XEM ESPORTS</button>
-            </section>
-
-            <!-- Streak -->
-            <section class="streak-section glass-card">
-                <div class="section-title">CHUỖI GẦN NHẤT</div>
-                <div class="streak-dots" id="streakDots">
-                    <div class="empty-state">Chưa có dữ liệu — Hãy vào lệnh đầu tiên!</div>
-                </div>
-                <div class="streak-info">
-                    <span id="currentStreak">—</span>
-                    <span id="longestStreak">—</span>
-                </div>
-            </section>
-
-            <!-- Stats Grid -->
-            <section class="stats-grid">
-                <div class="stat-card glass-card">
-                    <div class="stat-label">TỈ LỆ THẮNG</div>
-                    <div class="stat-value" id="winRateStat">—</div>
-                </div>
-                <div class="stat-card glass-card">
-                    <div class="stat-label">TỔNG LỆNH</div>
-                    <div class="stat-value" id="totalBetsStat">0</div>
-                </div>
-                <div class="stat-card glass-card">
-                    <div class="stat-label">LÃI / LỖ</div>
-                    <div class="stat-value" id="plStat">₫0</div>
-                </div>
-                <div class="stat-card glass-card">
-                    <div class="stat-label">ROI</div>
-                    <div class="stat-value" id="roiStat">—</div>
-                </div>
-            </section>
-
-            <!-- EV & Risk Assessment -->
-            <section class="ev-card glass-card">
-                <div class="section-title">ĐÁNH GIÁ HIỆN TẠI</div>
-                <div class="ev-grid">
-                    <div class="ev-item">
-                        <div class="ev-label">Expected Value</div>
-                        <div class="ev-value" id="evValue">—</div>
-                    </div>
-                    <div class="ev-item">
-                        <div class="ev-label">Stop-loss hôm nay</div>
-                        <div class="ev-value" id="stopLossToday">Chưa kích hoạt</div>
-                    </div>
-                </div>
-            </section>
-        </main>
 
 
 

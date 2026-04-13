@@ -64,11 +64,12 @@
     window.switchTab = function (tab) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-        document.getElementById('tab-' + tab).classList.add('active');
-        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        const tabEl = document.getElementById('tab-' + tab);
+        const navEl = document.querySelector(`[data-tab="${tab}"]`);
+        if (tabEl) tabEl.classList.add('active');
+        if (navEl) navEl.classList.add('active');
 
         if (tab === 'history') renderHistory();
-        if (tab === 'dashboard') updateDashboard();
         if (tab === 'esports' && window.EsportsUI) window.EsportsUI.initEsports();
     };
 
@@ -225,7 +226,7 @@
         }
 
         // Switch to dashboard after a moment
-        setTimeout(() => switchTab('dashboard'), 1500);
+        setTimeout(() => switchTab('esports'), 1500);
     };
 
     // ===== UPDATE ALL =====
@@ -607,9 +608,11 @@
             updateBetForm();
         });
 
-        // Handle back from active bet if needed
+        // Default to esports tab (unless active bet)
         if (state.activeBet) {
             switchTab('newbet');
+        } else {
+            switchTab('esports');
         }
     });
 
