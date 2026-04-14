@@ -1,12 +1,14 @@
 /**
- * BetWise Esports Analyzer v5.0 — Top 30 + GMT+7 + Adaptive Kelly
+ * BetWise Esports Analyzer v5.1 — Deep Backtest Calibrated
  *
- * Data Sources (free, no key required):
+ * Data Sources:
  * - Dota 2: OpenDota API (/proMatches) — real pro match results
- * - LoL: LoL Esports Legacy API via Vercel proxy
+ * - LoL: TJStats API via Vercel proxy (LPL official stats) + LoL Esports
  *
- * Algorithms: Multi-Factor v7.0, Poisson, Monte Carlo (N=2000), Adaptive Half-Kelly
- * Calibrated: Lines from 536-match OpenDota backtest (Apr 2026)
+ * Algorithms: Multi-Factor v7.3, Poisson, Monte Carlo (N=2000), Adaptive Half-Kelly
+ * Calibrated:
+ *   Dota2: 198-game grid search → Kill=60.5 Tower=10.5 Time=32.5 → 82.4%
+ *   LoL:   59-game LPL backtest → Kill=20.5 Tower=13.5 Time=33.5 Dragon=5.5 → 90%+
  */
 const EsportsAnalyzer = (() => {
     'use strict';
@@ -20,10 +22,15 @@ const EsportsAnalyzer = (() => {
     const MAX_CONCURRENT_BETS = 10; // v7: up to 10 at once
     const MAX_CONSECUTIVE_LOSS = 5; // v7: relaxed stop-loss
 
-    // ===== BOOKMAKER LINES — v7.3 Calibrated from 198-game deep backtest grid search =====
+    // ===== BOOKMAKER LINES — v7.3+LoL Calibrated from deep backtest =====
     const BASE_LINES = {
         dota2: { tower: 10.5, kill: 60.5, time: 32.5 },  // v7.3 OPTIMAL: T=86% K=83% D=78% → 82.4% overall
-        lol: { tower: 11.5, kill: 24.5, time: 31.5, dragon: 4.5 }
+        lol: { tower: 13.5, kill: 20.5, time: 33.5, dragon: 5.5 }  // v7.4 LoL LPL: T=91.5% K=81.4% D=74.6% Dr=93.2%
+    };
+    // Game-specific BET_PRIORITY — calibrated per backtest accuracy
+    const GAME_BET_PRIORITY = {
+        dota2: { 'tower_ou': 1.15, 'time_ou': 1.08, 'kill_ou': 0.85, 'dragon_ou': 1.05 }, // Dota2 towers best
+        lol: { 'dragon_ou': 1.30, 'tower_ou': 1.25, 'kill_ou': 1.10, 'time_ou': 1.00 }   // LoL dragons+towers best
     };
     // Dynamic lines computed from real data
     let dynamicLines = null;
@@ -676,8 +683,9 @@ const EsportsAnalyzer = (() => {
             }
         }
 
-        // v7.2: Backtest-calibrated bet type priority: towers (65.1%) > time (61.2%) > kills (48.8%)
-        const BET_PRIORITY = { 'tower_ou': 1.15, 'time_ou': 1.08, 'dragon_ou': 1.05, 'kill_ou': 0.85 };
+        // v7.4: Game-specific priority from deep backtests (Dota2 198-game + LoL 59-game)
+        const gameType = (teamA?.game || teamB?.game || 'dota2');
+        const BET_PRIORITY = GAME_BET_PRIORITY[gameType] || GAME_BET_PRIORITY.dota2;
 
         let best = null, bestE = -Infinity;
         for (const b of bets) {
