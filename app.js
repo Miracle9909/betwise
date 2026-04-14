@@ -86,6 +86,7 @@
 
         if (tab === 'history') renderHistory();
         if (tab === 'esports' && window.EsportsUI) window.EsportsUI.initEsports();
+        if (tab === 'predictions' && window.BetWisePredictions) window.BetWisePredictions.initPredictions();
     };
 
     // ===== SETTINGS =====

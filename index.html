@@ -170,6 +170,11 @@
             </section>
         </main>
 
+        <!-- ====== PREDICTIONS TAB ====== -->
+        <main class="tab-content" id="tab-predictions">
+            <div class="empty-state">Đang tải dự đoán...</div>
+        </main>
+
         <!-- Esports Settings Modal -->
         <div class="modal-overlay hidden" id="esSettingsModal">
             <div class="modal glass-card">
@@ -259,11 +264,11 @@
                 </svg>
                 <span>Trang chủ</span>
             </button>
-            <button class="bottom-nav-item" data-tab="matches" onclick="switchTab('esports')">
+            <button class="bottom-nav-item" data-tab="predictions" onclick="switchTab('predictions')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 11h4M14 11h4M15 6l-3 6 3 6M9 6l3 6-3 6" />
                 </svg>
-                <span>Trận đấu</span>
+                <span>Dự đoán</span>
             </button>
             <button class="bottom-nav-item" data-tab="history" onclick="switchTab('history')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -343,6 +348,7 @@
     <script src="chatbot.js"></script>
     <script src="esports.js"></script>
     <script src="esports-ui.js"></script>
+    <script src="predictions.js"></script>
 </body>
 
 </html>
