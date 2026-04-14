@@ -253,6 +253,8 @@
 
     // ===== UPDATE DASHBOARD =====
     function updateDashboard() {
+        // Guard: dashboard elements may not exist if that tab was removed
+        if (!document.getElementById('bankrollDisplay')) return;
         const stats = BetEngine.calcStats(state.history, state.initialBankroll, state.bankroll);
         const stage = BetEngine.getStage(state.bankroll);
         const streak = BetEngine.analyzeStreak(state.history);
@@ -357,6 +359,8 @@
 
     // ===== UPDATE BET FORM =====
     function updateBetForm() {
+        // Guard: bet form elements may not exist if that tab was removed
+        if (!document.getElementById('betOdds')) return;
         const odds = parseFloat(document.getElementById('betOdds')?.value) || 0.90;
 
         const rec = BetEngine.recommend({
@@ -395,6 +399,8 @@
 
     // ===== UPDATE OUTCOMES PREVIEW =====
     function updateOutcomes() {
+        // Guard: outcome elements may not exist if that tab was removed
+        if (!document.getElementById('betAmount') || !document.getElementById('betOdds')) return;
         const amountRaw = parseNum(document.getElementById('betAmount')?.value);
         const oddsRaw = parseFloat(document.getElementById('betOdds')?.value) || 0.90;
 
@@ -610,26 +616,26 @@
     document.addEventListener('DOMContentLoaded', () => {
         updateAll();
 
-        // Bet amount input formatting
+        // Bet amount input formatting (guard: element may not exist)
         const betAmountInput = document.getElementById('betAmount');
-        betAmountInput.addEventListener('input', () => {
-            updateOutcomes();
-            document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
-        });
-
-        // Odds input change
-        const betOddsInput = document.getElementById('betOdds');
-        betOddsInput.addEventListener('input', () => {
-            updateOutcomes();
-            updateBetForm();
-        });
-
-        // Default to esports tab (unless active bet)
-        if (state.activeBet) {
-            switchTab('newbet');
-        } else {
-            switchTab('esports');
+        if (betAmountInput) {
+            betAmountInput.addEventListener('input', () => {
+                updateOutcomes();
+                document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+            });
         }
+
+        // Odds input change (guard: element may not exist)
+        const betOddsInput = document.getElementById('betOdds');
+        if (betOddsInput) {
+            betOddsInput.addEventListener('input', () => {
+                updateOutcomes();
+                updateBetForm();
+            });
+        }
+
+        // Default to esports tab
+        switchTab('esports');
     });
 
     // ===== PERSISTENCE REINFORCEMENT =====
