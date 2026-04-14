@@ -65,9 +65,24 @@
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
         const tabEl = document.getElementById('tab-' + tab);
-        const navEl = document.querySelector(`[data-tab="${tab}"]`);
+        const navEl = document.querySelector(`.nav-tab[data-tab="${tab}"]`);
         if (tabEl) tabEl.classList.add('active');
         if (navEl) navEl.classList.add('active');
+
+        // Update bottom nav active state
+        document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
+        const mappedTab = (tab === 'esports') ? 'esports' : (tab === 'history') ? 'history' : tab;
+        const bottomItems = document.querySelectorAll('.bottom-nav-item');
+        bottomItems.forEach(el => {
+            const dt = el.getAttribute('data-tab');
+            if (dt === mappedTab || (dt === 'matches' && mappedTab === 'esports') || (dt === 'analytics' && mappedTab === 'history')) {
+                // "Trang chủ" and "Trận đấu" both map to esports tab for now
+                // "Cược" and "Phân tích" both map to history tab for now
+            }
+        });
+        // Set active on the exact match or first match
+        const exactBottom = document.querySelector(`.bottom-nav-item[data-tab="${mappedTab}"]`);
+        if (exactBottom) exactBottom.classList.add('active');
 
         if (tab === 'history') renderHistory();
         if (tab === 'esports' && window.EsportsUI) window.EsportsUI.initEsports();

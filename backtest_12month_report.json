@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-04-14T09:16:11.713Z",
+  "strategy": "v7.4 Calibrated Lines",
+  "lines": {
+    "dota2": {
+      "kill": 60.5,
+      "tower": 10.5,
+      "time": 32.5
+    },
+    "lol": {
+      "kill": 20.5,
+      "tower": 13.5,
+      "time": 33.5,
+      "dragon": 5.5
+    }
+  },
+  "dota2": {
+    "wins": 255,
+    "losses": 145,
+    "rate": "63.7%",
+    "matches": 200
+  },
+  "lol": {
+    "wins": 291,
+    "losses": 65,
+    "rate": "81.7%",
+    "games": 89
+  },
+  "combined": {
+    "wins": 546,
+    "losses": 210,
+    "rate": "72.2%",
+    "bets": 756
+  }
+}

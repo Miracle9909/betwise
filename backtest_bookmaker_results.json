@@ -1,0 +1,56 @@
+{
+  "lines": {
+    "kill": 24.5,
+    "tower": 11.5,
+    "dragon": 4.5,
+    "time": 31.5
+  },
+  "totalGames": 89,
+  "totalBets": 356,
+  "totalCorrect": 257,
+  "winRate": "72.2%",
+  "monthly": {
+    "2026-04": {
+      "correct": 31,
+      "bets": 56,
+      "games": 14
+    },
+    "2026-03": {
+      "correct": 106,
+      "bets": 180,
+      "games": 45
+    },
+    "2025-04": {
+      "correct": 120,
+      "bets": 120,
+      "games": 30
+    }
+  },
+  "perType": {
+    "kill": {
+      "over": 33,
+      "total": 89
+    },
+    "tower": {
+      "over": 21,
+      "total": 89
+    },
+    "dragon": {
+      "over": 21,
+      "total": 89
+    },
+    "time": {
+      "over": 24,
+      "total": 89
+    }
+  },
+  "dragonSoul": {
+    "has": 21,
+    "total": 89,
+    "pct": "23.6%"
+  },
+  "firstObjectives": {
+    "firstTurretWinCorrelation": "62.9%",
+    "firstDragonWinCorrelation": "44.1%"
+  }
+}
