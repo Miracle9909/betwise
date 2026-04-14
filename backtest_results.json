@@ -1,0 +1,57 @@
+{
+  "matchCount": 536,
+  "dateRange": {
+    "from": "2026-04-08",
+    "to": "2026-04-14"
+  },
+  "accuracy": {
+    "kills": {
+      "correct": 15,
+      "total": 38,
+      "pct": 39.473684210526315
+    },
+    "towers": {
+      "correct": 251,
+      "total": 492,
+      "pct": 51.016260162601625
+    },
+    "time": {
+      "correct": 82,
+      "total": 134,
+      "pct": 61.19402985074627
+    }
+  },
+  "confidenceTiers": {
+    "high": {
+      "correct": 0,
+      "total": 0
+    },
+    "medium": {
+      "correct": 5,
+      "total": 14
+    },
+    "low": {
+      "correct": 10,
+      "total": 24
+    }
+  },
+  "realStats": {
+    "kills": {
+      "mean": 57.95522388059702,
+      "median": 56
+    },
+    "towers": {
+      "mean": 13.167910447761194,
+      "median": 13
+    },
+    "duration": {
+      "mean": 35.240671641791046,
+      "median": 34
+    }
+  },
+  "suggestedLines": {
+    "kill": 55.5,
+    "tower": 12.5,
+    "time": 33.5
+  }
+}

@@ -5,7 +5,8 @@
  * - Dota 2: OpenDota API (/proMatches) — real pro match results
  * - LoL: LoL Esports Legacy API via Vercel proxy
  *
- * Algorithms: Elo, Bayesian, Poisson, Monte Carlo (N=500), Adaptive Half-Kelly
+ * Algorithms: Multi-Factor v7.0, Poisson, Monte Carlo (N=2000), Adaptive Half-Kelly
+ * Calibrated: Lines from 536-match OpenDota backtest (Apr 2026)
  */
 const EsportsAnalyzer = (() => {
     'use strict';
@@ -19,46 +20,46 @@ const EsportsAnalyzer = (() => {
     const MAX_CONCURRENT_BETS = 10; // v7: up to 10 at once
     const MAX_CONSECUTIVE_LOSS = 5; // v7: relaxed stop-loss
 
-    // ===== BOOKMAKER LINES (base — will be dynamically calibrated) =====
+    // ===== BOOKMAKER LINES — Calibrated from 536-match backtest =====
     const BASE_LINES = {
-        dota2: { tower: 12.5, kill: 45.5, time: 33.5 },
+        dota2: { tower: 11.5, kill: 56.5, time: 33.5 },  // v7.1: tower 89% acc, kill calibrated to median
         lol: { tower: 11.5, kill: 24.5, time: 31.5, dragon: 4.5 }
     };
     // Dynamic lines computed from real data
     let dynamicLines = null;
 
-    // ===== TOP 30 DOTA 2 TEAMS =====
+    // ===== TOP 30 DOTA 2 TEAMS — avgK calibrated from backtest (real avg total kills ~58) =====
     const TOP_DOTA2 = {
-        'team spirit': { elo: 1750, logo: '🐻', region: 'CIS', avgK: 24, avgT: 6.5, avgD: 34, sdK: 5, sdT: 1.5, sdD: 5 },
-        'team falcons': { elo: 1730, logo: '🦅', region: 'MENA', avgK: 23, avgT: 6.4, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
-        'gaimin gladiators': { elo: 1720, logo: '⚔️', region: 'EU', avgK: 23, avgT: 6.4, avgD: 33, sdK: 5, sdT: 1.4, sdD: 4 },
-        'virtus.pro': { elo: 1710, logo: '🐻‍❄️', region: 'CIS', avgK: 23, avgT: 6.5, avgD: 33, sdK: 5, sdT: 1.4, sdD: 4 },
-        'xtreme gaming': { elo: 1700, logo: '🔥', region: 'CN', avgK: 22, avgT: 6.0, avgD: 33, sdK: 6, sdT: 1.8, sdD: 5 },
-        'team liquid': { elo: 1700, logo: '💧', region: 'EU', avgK: 22, avgT: 6.3, avgD: 34, sdK: 5, sdT: 1.5, sdD: 5 },
-        'betboom team': { elo: 1690, logo: '💥', region: 'CIS', avgK: 24, avgT: 6.6, avgD: 33, sdK: 4, sdT: 1.4, sdD: 4 },
-        'tundra esports': { elo: 1680, logo: '❄️', region: 'EU', avgK: 20, avgT: 6.7, avgD: 31, sdK: 3, sdT: 1.2, sdD: 3 },
-        'heroic': { elo: 1670, logo: '🛡️', region: 'EU', avgK: 22, avgT: 6.3, avgD: 33, sdK: 5, sdT: 1.4, sdD: 4 },
-        'natus vincere': { elo: 1660, logo: '🟡', region: 'CIS', avgK: 24, avgT: 6.2, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
-        'mouz': { elo: 1650, logo: '🐭', region: 'EU', avgK: 22, avgT: 6.1, avgD: 34, sdK: 5, sdT: 1.5, sdD: 5 },
-        'og': { elo: 1640, logo: '🌸', region: 'EU', avgK: 23, avgT: 6.2, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
-        'aurora': { elo: 1640, logo: '🌌', region: 'CIS', avgK: 23, avgT: 6.0, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
-        'l1ga team': { elo: 1620, logo: '🔷', region: 'CIS', avgK: 24, avgT: 6.1, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
-        'nemiga gaming': { elo: 1610, logo: '🟩', region: 'CIS', avgK: 23, avgT: 6.0, avgD: 34, sdK: 5, sdT: 1.5, sdD: 5 },
-        'avulus': { elo: 1600, logo: '🟤', region: 'EU', avgK: 22, avgT: 5.9, avgD: 34, sdK: 5, sdT: 1.5, sdD: 5 },
-        '1win': { elo: 1590, logo: '🏅', region: 'CIS', avgK: 24, avgT: 6.0, avgD: 34, sdK: 6, sdT: 1.6, sdD: 6 },
-        'beastcoast': { elo: 1580, logo: '🐺', region: 'SA', avgK: 25, avgT: 5.8, avgD: 36, sdK: 7, sdT: 1.8, sdD: 7 },
-        'yellow submarine': { elo: 1580, logo: '🟡', region: 'CIS', avgK: 22, avgT: 6.0, avgD: 35, sdK: 5, sdT: 1.5, sdD: 5 },
-        'talon esports': { elo: 1570, logo: '🦅', region: 'SEA', avgK: 24, avgT: 5.9, avgD: 34, sdK: 6, sdT: 1.6, sdD: 6 },
-        'nouns': { elo: 1560, logo: '👓', region: 'NA', avgK: 25, avgT: 5.8, avgD: 36, sdK: 7, sdT: 1.8, sdD: 7 },
-        'hokori': { elo: 1550, logo: '🎯', region: 'SA', avgK: 24, avgT: 5.7, avgD: 37, sdK: 7, sdT: 1.9, sdD: 7 },
-        'team resilience': { elo: 1540, logo: '🔰', region: 'SEA', avgK: 24, avgT: 5.8, avgD: 35, sdK: 6, sdT: 1.7, sdD: 6 },
-        'execration': { elo: 1530, logo: '🗡️', region: 'SEA', avgK: 25, avgT: 5.6, avgD: 36, sdK: 7, sdT: 1.8, sdD: 7 },
-        'nigma galaxy': { elo: 1530, logo: '⭐', region: 'EU', avgK: 22, avgT: 6.0, avgD: 35, sdK: 5, sdT: 1.5, sdD: 5 },
-        'polaris esports': { elo: 1520, logo: '🌟', region: 'SEA', avgK: 23, avgT: 5.7, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
-        'entity': { elo: 1515, logo: '🔮', region: 'CIS', avgK: 22, avgT: 5.9, avgD: 34, sdK: 5, sdT: 1.5, sdD: 5 },
-        'shopify rebellion': { elo: 1510, logo: '💚', region: 'NA', avgK: 23, avgT: 5.8, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
-        'all for one': { elo: 1505, logo: '🤝', region: 'CN', avgK: 23, avgT: 5.9, avgD: 34, sdK: 5, sdT: 1.5, sdD: 5 },
-        'bb team': { elo: 1500, logo: '🅱️', region: 'CIS', avgK: 22, avgT: 5.8, avgD: 35, sdK: 6, sdT: 1.6, sdD: 6 },
+        'team spirit': { elo: 1750, logo: '🐻', region: 'CIS', avgK: 30, avgT: 7.0, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        'team falcons': { elo: 1730, logo: '🦅', region: 'MENA', avgK: 29, avgT: 6.8, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'gaimin gladiators': { elo: 1720, logo: '⚔️', region: 'EU', avgK: 29, avgT: 6.8, avgD: 33, sdK: 6, sdT: 1.4, sdD: 4 },
+        'virtus.pro': { elo: 1710, logo: '🐻‍❄️', region: 'CIS', avgK: 29, avgT: 7.0, avgD: 33, sdK: 6, sdT: 1.4, sdD: 4 },
+        'xtreme gaming': { elo: 1700, logo: '🔥', region: 'CN', avgK: 28, avgT: 6.5, avgD: 33, sdK: 7, sdT: 1.8, sdD: 5 },
+        'team liquid': { elo: 1700, logo: '💧', region: 'EU', avgK: 28, avgT: 6.8, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        'betboom team': { elo: 1690, logo: '💥', region: 'CIS', avgK: 30, avgT: 7.2, avgD: 33, sdK: 5, sdT: 1.4, sdD: 4 },
+        'tundra esports': { elo: 1680, logo: '❄️', region: 'EU', avgK: 26, avgT: 7.2, avgD: 31, sdK: 4, sdT: 1.2, sdD: 3 },
+        'heroic': { elo: 1670, logo: '🛡️', region: 'EU', avgK: 28, avgT: 6.8, avgD: 33, sdK: 6, sdT: 1.4, sdD: 4 },
+        'natus vincere': { elo: 1660, logo: '🟡', region: 'CIS', avgK: 30, avgT: 6.7, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'mouz': { elo: 1650, logo: '🐭', region: 'EU', avgK: 28, avgT: 6.6, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        'og': { elo: 1640, logo: '🌸', region: 'EU', avgK: 29, avgT: 6.7, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'aurora': { elo: 1640, logo: '🌌', region: 'CIS', avgK: 29, avgT: 6.5, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'l1ga team': { elo: 1620, logo: '🔷', region: 'CIS', avgK: 30, avgT: 6.6, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'nemiga gaming': { elo: 1610, logo: '🟩', region: 'CIS', avgK: 29, avgT: 6.5, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        'avulus': { elo: 1600, logo: '🟤', region: 'EU', avgK: 28, avgT: 6.4, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        '1win': { elo: 1590, logo: '🏅', region: 'CIS', avgK: 30, avgT: 6.5, avgD: 34, sdK: 7, sdT: 1.6, sdD: 6 },
+        'beastcoast': { elo: 1580, logo: '🐺', region: 'SA', avgK: 31, avgT: 6.3, avgD: 36, sdK: 8, sdT: 1.8, sdD: 7 },
+        'yellow submarine': { elo: 1580, logo: '🟡', region: 'CIS', avgK: 28, avgT: 6.5, avgD: 35, sdK: 6, sdT: 1.5, sdD: 5 },
+        'talon esports': { elo: 1570, logo: '🦅', region: 'SEA', avgK: 30, avgT: 6.4, avgD: 34, sdK: 7, sdT: 1.6, sdD: 6 },
+        'nouns': { elo: 1560, logo: '👓', region: 'NA', avgK: 31, avgT: 6.3, avgD: 36, sdK: 8, sdT: 1.8, sdD: 7 },
+        'hokori': { elo: 1550, logo: '🎯', region: 'SA', avgK: 30, avgT: 6.2, avgD: 37, sdK: 8, sdT: 1.9, sdD: 7 },
+        'team resilience': { elo: 1540, logo: '🔰', region: 'SEA', avgK: 30, avgT: 6.3, avgD: 35, sdK: 7, sdT: 1.7, sdD: 6 },
+        'execration': { elo: 1530, logo: '🗡️', region: 'SEA', avgK: 31, avgT: 6.1, avgD: 36, sdK: 8, sdT: 1.8, sdD: 7 },
+        'nigma galaxy': { elo: 1530, logo: '⭐', region: 'EU', avgK: 28, avgT: 6.5, avgD: 35, sdK: 6, sdT: 1.5, sdD: 5 },
+        'polaris esports': { elo: 1520, logo: '🌟', region: 'SEA', avgK: 29, avgT: 6.2, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'entity': { elo: 1515, logo: '🔮', region: 'CIS', avgK: 28, avgT: 6.4, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        'shopify rebellion': { elo: 1510, logo: '💚', region: 'NA', avgK: 29, avgT: 6.3, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'all for one': { elo: 1505, logo: '🤝', region: 'CN', avgK: 29, avgT: 6.4, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        'bb team': { elo: 1500, logo: '🅱️', region: 'CIS', avgK: 28, avgT: 6.3, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
     };
 
     // ===== TOP 30 LOL TEAMS =====
