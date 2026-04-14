@@ -11,12 +11,13 @@ const EsportsAnalyzer = (() => {
     'use strict';
 
     const STORAGE_KEY = 'betwise_esports_v5';
-    const MIN_CONFIDENCE = 0.78;  // v6: ultra-selective for 90%+ WR
-    const MIN_EDGE = 0.12;        // v6: only fat pitches
+    const MIN_CONFIDENCE = 0.65;  // v7: allow more bets with multi-factor model
+    const MIN_EDGE = 0.06;        // v7: lower edge threshold
     const MONTE_CARLO_N = 2000;   // v6.1: increased from 500 for statistical stability
     const TZ_OFFSET_MS = 7 * 3600 * 1000; // GMT+7
-    const MAX_DAILY_BETS = 3;     // v6: anti-tilt
-    const MAX_CONSECUTIVE_LOSS = 2; // v6: stop-loss
+    const MAX_DAILY_BETS = 999;   // v7: unlimited daily bets
+    const MAX_CONCURRENT_BETS = 10; // v7: up to 10 at once
+    const MAX_CONSECUTIVE_LOSS = 5; // v7: relaxed stop-loss
 
     // ===== BOOKMAKER LINES (base — will be dynamically calibrated) =====
     const BASE_LINES = {
@@ -433,7 +434,7 @@ const EsportsAnalyzer = (() => {
         return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
 
-    // ===== PROBABILITY ENGINE =====
+    // ===== MULTI-FACTOR PROBABILITY ENGINE v7.0 =====
     const H2H = {};
     function getH2H(tA, tB) {
         const key = [tA.id, tB.id].sort().join('-');
@@ -447,11 +448,70 @@ const EsportsAnalyzer = (() => {
     }
     function eloWP(a, b) { return 1 / (1 + Math.pow(10, (b - a) / 400)); }
     function formScore(f) { const w = [1, 2, 3, 4, 5]; let s = 0, ws = 0; for (let i = 0; i < f.length; i++) { s += f[i] * w[i]; ws += w[i]; } return s / ws; }
-    function winProbability(tA, tB) {
-        const ep = eloWP(tA.elo, tB.elo), h = getH2H(tA, tB), hl = h.wins / h.total;
-        const fA = formScore(tA.form), fB = formScore(tB.form), ff = fA / (fA + fB + 0.001);
-        const hw = Math.min(h.total / 15, 0.35), fw = 0.20, ew = 1 - hw - fw;
-        return Math.max(0.10, Math.min(0.90, ep * ew + hl * hw + ff * fw));
+
+    // v7: Region strength multiplier — stronger regions get a boost
+    const REGION_STRENGTH = {
+        'KR': 1.08, 'CN': 1.06, 'EU': 1.02, 'CIS': 1.02,
+        'SEA': 0.98, 'NA': 0.96, 'SA': 0.94, 'MENA': 0.97,
+    };
+
+    // v7: Side advantage — Radiant has ~52% WR in Dota 2, Blue has ~53% in LoL
+    const SIDE_ADVANTAGE = { dota2: 0.52, lol: 0.53 };
+
+    // v7: Playstyle consistency — low CV = predictable team
+    function consistencyScore(team) {
+        const stats = [
+            { avg: team.avgKills, sd: team.sdKills },
+            { avg: team.avgTowers, sd: team.sdTowers },
+            { avg: team.avgDuration, sd: team.sdDur },
+        ];
+        let totalCV = 0, count = 0;
+        for (const s of stats) {
+            if (s.avg > 0) { totalCV += s.sd / s.avg; count++; }
+        }
+        const avgCV = count > 0 ? totalCV / count : 0.3;
+        // Lower CV = more consistent = higher score (0.6 to 1.0)
+        return Math.max(0.6, Math.min(1.0, 1.0 - avgCV));
+    }
+
+    // v7: Multi-factor win probability
+    function winProbability(tA, tB, game, isRadiantOrBlue) {
+        // Factor 1: Elo-based probability (35% weight)
+        const ep = eloWP(tA.elo, tB.elo);
+
+        // Factor 2: H2H record (15% weight, scaled by sample size)
+        const h = getH2H(tA, tB);
+        const hl = h.wins / h.total;
+        const hw = Math.min(h.total / 15, 0.15);
+
+        // Factor 3: Recent form with recency weighting (20% weight)
+        const fA = formScore(tA.form), fB = formScore(tB.form);
+        const ff = fA / (fA + fB + 0.001);
+
+        // Factor 4: Side advantage — team A is Radiant/Blue side? (5% weight)
+        let sideBonus = 0;
+        if (isRadiantOrBlue !== undefined && game) {
+            const sideWR = SIDE_ADVANTAGE[game] || 0.50;
+            // If team A is on favored side, bonus; otherwise penalty
+            sideBonus = isRadiantOrBlue ? (sideWR - 0.50) : -(sideWR - 0.50);
+        }
+
+        // Factor 5: Region strength — stronger region = slight edge (5% weight)
+        const rA = REGION_STRENGTH[tA.region] || 1.0;
+        const rB = REGION_STRENGTH[tB.region] || 1.0;
+        const regionFactor = rA / (rA + rB);
+
+        // Factor 6: Consistency — predictable teams are easier to model (5% weight)
+        const cA = consistencyScore(tA), cB = consistencyScore(tB);
+        const consistencyFactor = cA / (cA + cB);
+
+        // Combine all factors
+        const fw = 0.20, ew = 0.35 - hw, sw = 0.05, rw = 0.05, cw = 0.05;
+        // Remaining weight = 15% for base factors (region, consistency, side)
+        let prob = ep * ew + hl * hw + ff * fw + regionFactor * rw + consistencyFactor * cw + 0.50 * (1 - ew - hw - fw - rw - cw);
+        prob += sideBonus * sw;
+
+        return Math.max(0.10, Math.min(0.90, prob));
     }
 
     // ===== POISSON + MONTE CARLO =====
@@ -504,7 +564,7 @@ const EsportsAnalyzer = (() => {
     }
     function buildBet(type, label, line, overProb, odds) {
         const op = Math.max(0.10, Math.min(0.90, overProb)), up = 1 - op;
-        const pick = op > 0.60 ? 'over' : up > 0.60 ? 'under' : null; // v6: raised from 0.55 to 0.60
+        const pick = op > 0.55 ? 'over' : up > 0.55 ? 'under' : null; // v7: back to 0.55 for more bets
         return { type, label, line, overProb: op, underProb: up, odds, pick, pickProb: pick === 'over' ? op : pick === 'under' ? up : Math.max(op, up) };
     }
 
@@ -594,25 +654,17 @@ const EsportsAnalyzer = (() => {
         return Math.max(0.15, Math.min(0.70, multiplier)) * baseKelly;
     }
 
-    // ===== RECOMMENDATION v6.0 (Ultra-Selective Multi-Gate + Learning) =====
+    // ===== RECOMMENDATION v7.0 (Multi-Factor + Aggressive) =====
     function generateRecommendation(bets, bankroll, streak = 0, sessionPL = 0, predictions, teamA, teamB, placedBets) {
-        // Gate 4: Anti-tilt — check daily bet count and stop-loss
-        if (placedBets) {
-            const limits = checkDailyLimits(placedBets, streak);
-            if (!limits.allowed) {
-                return { action: 'SKIP', reason: `🛑 ${limits.reason}`, bestBet: null, amount: 0, probability: 0, edge: 0 };
-            }
+        // Anti-tilt: stop-loss after consecutive losses (relaxed to 5)
+        if (placedBets && streak <= -MAX_CONSECUTIVE_LOSS) {
+            return { action: 'SKIP', reason: `🛑 Dừng sau ${Math.abs(streak)} lệnh thua liên tiếp`, bestBet: null, amount: 0, probability: 0, edge: 0 };
         }
 
-        // Gate 2: Elo Gap — only bet on clear mismatches (>= 100 Elo difference)
-        if (teamA && teamB && !hasEloGap(teamA, teamB, 100)) {
-            return { action: 'SKIP', reason: 'Elo quá gần — không đủ chênh lệch', bestBet: null, amount: 0, probability: 0, edge: 0 };
-        }
-
-        // Gate 3: Multi-Signal — at least 2 bet types must agree on direction
+        // Multi-Signal check (relaxed: 1 signal OK if probability high enough)
         const multiSig = checkMultiSignal(bets);
 
-        // Learning loop — get accuracy per bet type from prediction history
+        // Learning loop
         const typeAccuracy = {};
         if (predictions && predictions.length > 0) {
             const resolved = predictions.filter(p => p.resolved);
@@ -627,37 +679,35 @@ const EsportsAnalyzer = (() => {
         for (const b of bets) {
             if (!b.pick || b.pickProb < MIN_CONFIDENCE) continue;
 
-            // Multi-signal: only follow dominant direction
+            // Multi-signal: prefer dominant direction, but allow single if p >= 0.72
             if (multiSig.confirmed && b.pick !== multiSig.direction) continue;
-            // If no multi-signal agreement, skip entirely
-            if (!multiSig.confirmed) continue;
+            if (!multiSig.confirmed && b.pickProb < 0.72) continue;
 
-            // Gate 1: Consistency — both teams must be consistent for this stat
-            if (teamA && teamB && !isConsistentForBet(teamA, teamB, b.type)) continue;
-
-            // Learning: skip bet types with < 55% historical accuracy
+            // Learning: skip bet types with < 50% historical accuracy (need 5+ samples)
             const acc = typeAccuracy[b.type];
-            if (acc && acc.total >= 3 && (acc.wins / acc.total) < 0.55) {
-                console.log(`[v6 Learning] Skipping ${b.type}: ${acc.wins}/${acc.total} = ${(acc.wins / acc.total * 100).toFixed(0)}%`);
+            if (acc && acc.total >= 5 && (acc.wins / acc.total) < 0.50) {
+                console.log(`[v7 Learning] Skipping ${b.type}: ${acc.wins}/${acc.total} = ${(acc.wins / acc.total * 100).toFixed(0)}%`);
                 continue;
             }
 
             const e = b.pickProb * (b.odds - 1) - (1 - b.pickProb);
             if (e > bestE && e >= MIN_EDGE) { bestE = e; best = b; }
         }
-        if (!best) return { action: 'SKIP', reason: 'Không đủ edge — 5 gate filter', bestBet: null, amount: 0, probability: 0, edge: 0 };
+        if (!best) return { action: 'SKIP', reason: 'Không đủ edge — Theo dõi', bestBet: null, amount: 0, probability: 0, edge: 0 };
         const p = best.pickProb, b2 = best.odds - 1;
         const rawKelly = (b2 * p - (1 - p)) / b2;
         const kh = adaptiveKelly(rawKelly, streak, sessionPL, bankroll);
         let t, sz;
-        if (p >= 0.85) { t = 'elite'; sz = Math.min(kh * 1.5, 0.25); }      // Ultra-confident
-        else if (p >= 0.78) { t = 'high'; sz = Math.min(kh * 1.0, 0.15); }   // Very confident
+        if (p >= 0.80) { t = 'elite'; sz = Math.min(kh * 1.5, 0.25); }      // Very high confidence
+        else if (p >= 0.70) { t = 'high'; sz = Math.min(kh * 1.0, 0.18); }   // High confidence
+        else if (p >= 0.65) { t = 'medium'; sz = Math.min(kh * 0.7, 0.12); }  // v7: re-added medium tier
         else { t = 'skip'; sz = 0; }
         const amt = Math.round(bankroll * sz / 10000) * 10000;
         if (amt < 50000) return { action: 'SKIP', reason: 'Mức cược nhỏ', bestBet: best, amount: 0, probability: p, edge: bestE };
         const gateInfo = multiSig.confirmed ? `${multiSig.agreement}/${bets.filter(b => b.pick).length} signals` : '';
         const pl = best.pick === 'over' ? `Tài (>${best.line})` : `Xỉu (<${best.line})`;
-        return { action: 'BET', bestBet: best, betType: best.type, betLabel: best.label, pick: best.pick, pickLabel: pl, probability: p, edge: bestE, kelly: kh, confTier: t, amount: amt, odds: best.odds, reason: `${t === 'elite' ? '🔥🔥' : '🔥'} P=${(p * 100).toFixed(0)}% Edge=+${(bestE * 100).toFixed(1)}% ${gateInfo}` };
+        const tierIcon = t === 'elite' ? '🔥🔥' : t === 'high' ? '🔥' : '✅';
+        return { action: 'BET', bestBet: best, betType: best.type, betLabel: best.label, pick: best.pick, pickLabel: pl, probability: p, edge: bestE, kelly: kh, confTier: t, amount: amt, odds: best.odds, reason: `${tierIcon} P=${(p * 100).toFixed(0)}% Edge=+${(bestE * 100).toFixed(1)}% ${gateInfo}` };
     }
 
     // ===== MATCH RESULT — use real data, no simulation =====
