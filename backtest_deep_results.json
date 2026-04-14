@@ -1,0 +1,288 @@
+{
+  "dotaMatches": 198,
+  "dateRange": {
+    "from": "2026-04-12",
+    "to": "2026-04-14"
+  },
+  "realStats": {
+    "killMean": 54.4040404040404,
+    "killMedian": 53,
+    "durMean": 35.717171717171716,
+    "durMedian": 34
+  },
+  "bestOverall": {
+    "killLine": 60.5,
+    "towerLine": 10.5,
+    "timeLine": 32.5,
+    "minPick": 0.55,
+    "correct": 84,
+    "total": 102,
+    "pct": 82.35294117647058,
+    "towerPct": 86.11111111111111,
+    "timePct": 77.77777777777779,
+    "killPct": 83.33333333333334
+  },
+  "bestHighAcc": {
+    "killLine": 50.5,
+    "towerLine": 10.5,
+    "timeLine": 32.5,
+    "minPick": 0.55,
+    "correct": 78,
+    "total": 108,
+    "pct": 72.22222222222221,
+    "towerPct": 86.11111111111111,
+    "timePct": 77.77777777777779,
+    "killPct": 52.77777777777778
+  },
+  "top10": [
+    {
+      "killLine": 60.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 84,
+      "total": 102,
+      "pct": 82.35294117647058,
+      "towerPct": 86.11111111111111,
+      "timePct": 77.77777777777779,
+      "killPct": 83.33333333333334
+    },
+    {
+      "killLine": 60.5,
+      "towerLine": 11.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 82,
+      "total": 102,
+      "pct": 80.3921568627451,
+      "towerPct": 80.55555555555556,
+      "timePct": 77.77777777777779,
+      "killPct": 83.33333333333334
+    },
+    {
+      "killLine": 58.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 73,
+      "total": 92,
+      "pct": 79.34782608695652,
+      "towerPct": 86.11111111111111,
+      "timePct": 77.77777777777779,
+      "killPct": 70
+    },
+    {
+      "killLine": 60.5,
+      "towerLine": 10.5,
+      "timeLine": 33.5,
+      "minPick": 0.55,
+      "correct": 68,
+      "total": 81,
+      "pct": 83.9506172839506,
+      "towerPct": 86.11111111111111,
+      "timePct": 80,
+      "killPct": 83.33333333333334
+    },
+    {
+      "killLine": 60.5,
+      "towerLine": 12.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 72,
+      "total": 92,
+      "pct": 78.26086956521739,
+      "towerPct": 73.07692307692307,
+      "timePct": 77.77777777777779,
+      "killPct": 83.33333333333334
+    },
+    {
+      "killLine": 50.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 78,
+      "total": 108,
+      "pct": 72.22222222222221,
+      "towerPct": 86.11111111111111,
+      "timePct": 77.77777777777779,
+      "killPct": 52.77777777777778
+    },
+    {
+      "killLine": 60.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.6,
+      "correct": 68,
+      "total": 84,
+      "pct": 80.95238095238095,
+      "towerPct": 86.11111111111111,
+      "timePct": 73.91304347826086,
+      "killPct": 80
+    },
+    {
+      "killLine": 58.5,
+      "towerLine": 11.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 71,
+      "total": 92,
+      "pct": 77.17391304347827,
+      "towerPct": 80.55555555555556,
+      "timePct": 77.77777777777779,
+      "killPct": 70
+    },
+    {
+      "killLine": 60.5,
+      "towerLine": 11.5,
+      "timeLine": 33.5,
+      "minPick": 0.55,
+      "correct": 66,
+      "total": 81,
+      "pct": 81.48148148148148,
+      "towerPct": 80.55555555555556,
+      "timePct": 80,
+      "killPct": 83.33333333333334
+    },
+    {
+      "killLine": 50.5,
+      "towerLine": 11.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 76,
+      "total": 108,
+      "pct": 70.37037037037037,
+      "towerPct": 80.55555555555556,
+      "timePct": 77.77777777777779,
+      "killPct": 52.77777777777778
+    }
+  ],
+  "highAccuracy": [
+    {
+      "killLine": 50.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 78,
+      "total": 108,
+      "pct": 72.22222222222221,
+      "towerPct": 86.11111111111111,
+      "timePct": 77.77777777777779,
+      "killPct": 52.77777777777778
+    },
+    {
+      "killLine": 50.5,
+      "towerLine": 11.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 76,
+      "total": 108,
+      "pct": 70.37037037037037,
+      "towerPct": 80.55555555555556,
+      "timePct": 77.77777777777779,
+      "killPct": 52.77777777777778
+    },
+    {
+      "killLine": 52.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 73,
+      "total": 108,
+      "pct": 67.5925925925926,
+      "towerPct": 86.11111111111111,
+      "timePct": 77.77777777777779,
+      "killPct": 38.88888888888889
+    },
+    {
+      "killLine": 52.5,
+      "towerLine": 11.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 71,
+      "total": 108,
+      "pct": 65.74074074074075,
+      "towerPct": 80.55555555555556,
+      "timePct": 77.77777777777779,
+      "killPct": 38.88888888888889
+    },
+    {
+      "killLine": 60.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 84,
+      "total": 102,
+      "pct": 82.35294117647058,
+      "towerPct": 86.11111111111111,
+      "timePct": 77.77777777777779,
+      "killPct": 83.33333333333334
+    },
+    {
+      "killLine": 60.5,
+      "towerLine": 11.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 82,
+      "total": 102,
+      "pct": 80.3921568627451,
+      "towerPct": 80.55555555555556,
+      "timePct": 77.77777777777779,
+      "killPct": 83.33333333333334
+    },
+    {
+      "killLine": 50.5,
+      "towerLine": 12.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 66,
+      "total": 98,
+      "pct": 67.3469387755102,
+      "towerPct": 73.07692307692307,
+      "timePct": 77.77777777777779,
+      "killPct": 52.77777777777778
+    },
+    {
+      "killLine": 56.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 66,
+      "total": 97,
+      "pct": 68.04123711340206,
+      "towerPct": 86.11111111111111,
+      "timePct": 77.77777777777779,
+      "killPct": 28.000000000000004
+    },
+    {
+      "killLine": 56.5,
+      "towerLine": 11.5,
+      "timeLine": 32.5,
+      "minPick": 0.55,
+      "correct": 64,
+      "total": 97,
+      "pct": 65.97938144329896,
+      "towerPct": 80.55555555555556,
+      "timePct": 77.77777777777779,
+      "killPct": 28.000000000000004
+    },
+    {
+      "killLine": 50.5,
+      "towerLine": 10.5,
+      "timeLine": 32.5,
+      "minPick": 0.6,
+      "correct": 67,
+      "total": 95,
+      "pct": 70.52631578947368,
+      "towerPct": 86.11111111111111,
+      "timePct": 73.91304347826086,
+      "killPct": 52.77777777777778
+    }
+  ],
+  "monthlyKills": {
+    "2026-04": {
+      "count": 198,
+      "avgKill": 54.4040404040404,
+      "avgDur": 35.717171717171716
+    }
+  }
+}
