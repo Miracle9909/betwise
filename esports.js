@@ -13,7 +13,7 @@ const EsportsAnalyzer = (() => {
     const STORAGE_KEY = 'betwise_esports_v5';
     const MIN_CONFIDENCE = 0.78;  // v6: ultra-selective for 90%+ WR
     const MIN_EDGE = 0.12;        // v6: only fat pitches
-    const MONTE_CARLO_N = 500;
+    const MONTE_CARLO_N = 2000;   // v6.1: increased from 500 for statistical stability
     const TZ_OFFSET_MS = 7 * 3600 * 1000; // GMT+7
     const MAX_DAILY_BETS = 3;     // v6: anti-tilt
     const MAX_CONSECUTIVE_LOSS = 2; // v6: stop-loss
@@ -254,7 +254,8 @@ const EsportsAnalyzer = (() => {
         const teamA = mapTeamFromName(raw.radiant_name, 'dota2', allRawDota);
         const teamB = mapTeamFromName(raw.dire_name, 'dota2', allRawDota);
         const time = toGMT7Time(raw.start_time * 1000);
-        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'dota2');
+        const matchId = `d2_real_${raw.match_id}`;
+        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'dota2', matchId);
 
         const hasResult = raw.radiant_score != null && raw.dire_score != null;
         const realResult = hasResult ? {
@@ -302,7 +303,8 @@ const EsportsAnalyzer = (() => {
         const time = raw.startTime ? toGMT7Time(raw.startTime) : '—';
         const isFinished = raw.state === 'completed' || raw.state === 'finished';
         const isLive = raw.state === 'inProgress' || raw.state === 'live';
-        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol');
+        const matchId = `lol_${raw.id || index}_${dateStr}`;
+        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol', matchId);
 
         // Series scores from API
         const scoreA = raw.teamA?.score ?? null;
@@ -368,8 +370,19 @@ const EsportsAnalyzer = (() => {
         }
 
         const all = [...dotaMatches, ...lolMatches];
-        all.sort((a, b) => a.time.localeCompare(b.time));
+        // v6.1: Sort by nearest-time-first (closest to current time)
+        const nowHHMM = new Date(Date.now() + TZ_OFFSET_MS).toISOString().substring(11, 16);
+        all.sort((a, b) => {
+            // Compare absolute distance from current time
+            const distA = Math.abs(timeToMinutes(a.time) - timeToMinutes(nowHHMM));
+            const distB = Math.abs(timeToMinutes(b.time) - timeToMinutes(nowHHMM));
+            return distA - distB;
+        });
         return all;
+    }
+    function timeToMinutes(t) {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + (m || 0);
     }
 
     // ===== LOL FALLBACK (simulated from real tournament teams) =====
@@ -400,7 +413,8 @@ const EsportsAnalyzer = (() => {
             const min = rng() > 0.5 ? '00' : '30';
             const time = `${String(hour).padStart(2, '0')}:${min}`;
 
-            const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol');
+            const matchId = `lol_sim_${dateStr}_${i}`;
+            const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol', matchId);
             matches.push({
                 id: `lol_sim_${dateStr}_${i}`,
                 game: 'lol',
@@ -443,16 +457,31 @@ const EsportsAnalyzer = (() => {
     // ===== POISSON + MONTE CARLO =====
     function poissonPMF(k, l) { let r = Math.exp(-l); for (let i = 1; i <= k; i++) r *= l / i; return r; }
     function poissonOP(l, line) { let c = 0; for (let k = 0; k <= Math.floor(line); k++) c += poissonPMF(k, l); return 1 - c; }
-    function gRand(m, s) { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return m + s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 
-    function mcSim(tA, tB, game, n = MONTE_CARLO_N) {
+    // v6.1: Seeded RNG for deterministic Monte Carlo (same match → same prediction)
+    function seededGRand(m, s, rngFn) {
+        let u = 0, v = 0;
+        while (u === 0) u = rngFn();
+        while (v === 0) v = rngFn();
+        return m + s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    function matchRng(matchId) {
+        let seed = hashCode(matchId + '_mc');
+        return function () {
+            seed = (seed * 1664525 + 1013904223) & 0x7fffffff;
+            return seed / 0x7fffffff;
+        };
+    }
+
+    function mcSim(tA, tB, game, n = MONTE_CARLO_N, matchId) {
         const r = { k: [], t: [], d: [], dr: [] }, wp = winProbability(tA, tB);
+        const rng = matchId ? matchRng(matchId) : Math.random.bind(Math); // v6.1: seeded if matchId given
         for (let i = 0; i < n; i++) {
-            const aw = Math.random() < wp, wb = aw ? 1.04 : 0.96, tb = aw ? 1.06 : 0.94;
-            r.k.push(Math.max(10, Math.round(gRand((tA.avgKills + tB.avgKills) * wb, Math.sqrt(tA.sdKills ** 2 + tB.sdKills ** 2)))));
-            r.t.push(Math.max(5, Math.round(gRand((tA.avgTowers + tB.avgTowers) * tb, Math.sqrt(tA.sdTowers ** 2 + tB.sdTowers ** 2)))));
-            r.d.push(Math.max(18, Math.round(gRand((tA.avgDuration + tB.avgDuration) / 2, Math.sqrt((tA.sdDur ** 2 + tB.sdDur ** 2) / 2)))));
-            if (game === 'lol' && tA.avgDragon) r.dr.push(Math.max(1, Math.round(gRand(tA.avgDragon + tB.avgDragon, Math.sqrt((tA.sdDragon || 0.8) ** 2 + (tB.sdDragon || 0.8) ** 2)))));
+            const aw = rng() < wp, wb = aw ? 1.04 : 0.96, tb = aw ? 1.06 : 0.94;
+            r.k.push(Math.max(10, Math.round(seededGRand((tA.avgKills + tB.avgKills) * wb, Math.sqrt(tA.sdKills ** 2 + tB.sdKills ** 2), rng))));
+            r.t.push(Math.max(5, Math.round(seededGRand((tA.avgTowers + tB.avgTowers) * tb, Math.sqrt(tA.sdTowers ** 2 + tB.sdTowers ** 2), rng))));
+            r.d.push(Math.max(18, Math.round(seededGRand((tA.avgDuration + tB.avgDuration) / 2, Math.sqrt((tA.sdDur ** 2 + tB.sdDur ** 2) / 2), rng))));
+            if (game === 'lol' && tA.avgDragon) r.dr.push(Math.max(1, Math.round(seededGRand(tA.avgDragon + tB.avgDragon, Math.sqrt((tA.sdDragon || 0.8) ** 2 + (tB.sdDragon || 0.8) ** 2), rng))));
         }
         const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
         const sd = a => { const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length); };
@@ -461,14 +490,16 @@ const EsportsAnalyzer = (() => {
         return res;
     }
 
-    // ===== BET ANALYSIS (uses dynamic lines) =====
-    function analyzeBetTypes(tA, tB, game) {
-        const mc = mcSim(tA, tB, game), l = getLines(game), bets = [];
-        bets.push(buildBet('tower_ou', 'Tài/Xỉu Trụ', l.tower, poissonOP(mc.towers.mean, l.tower), 1.80 + Math.random() * 0.15));
-        bets.push(buildBet('kill_ou', 'Tài/Xỉu Mạng', l.kill, poissonOP(mc.kills.mean, l.kill), 1.82 + Math.random() * 0.13));
+    // ===== BET ANALYSIS (uses dynamic lines + seeded MC) =====
+    function analyzeBetTypes(tA, tB, game, matchId) {
+        const mc = mcSim(tA, tB, game, MONTE_CARLO_N, matchId), l = getLines(game), bets = [];
+        // Use seeded RNG for odds variation too (deterministic per match)
+        const oddsRng = matchId ? matchRng(matchId + '_odds') : Math.random.bind(Math);
+        bets.push(buildBet('tower_ou', 'Tài/Xỉu Trụ', l.tower, poissonOP(mc.towers.mean, l.tower), 1.80 + oddsRng() * 0.15));
+        bets.push(buildBet('kill_ou', 'Tài/Xỉu Mạng', l.kill, poissonOP(mc.kills.mean, l.kill), 1.82 + oddsRng() * 0.13));
         const tOP = mc.duration.samples.filter(d => d > l.time).length / mc.duration.samples.length;
-        bets.push(buildBet('time_ou', 'Tài/Xỉu Thời gian', l.time, tOP, 1.85 + Math.random() * 0.10));
-        if (game === 'lol' && mc.dragons) bets.push(buildBet('dragon_ou', 'Tài/Xỉu Rồng', l.dragon, poissonOP(mc.dragons.mean, l.dragon), 1.83 + Math.random() * 0.12));
+        bets.push(buildBet('time_ou', 'Tài/Xỉu Thời gian', l.time, tOP, 1.85 + oddsRng() * 0.10));
+        if (game === 'lol' && mc.dragons) bets.push(buildBet('dragon_ou', 'Tài/Xỉu Rồng', l.dragon, poissonOP(mc.dragons.mean, l.dragon), 1.83 + oddsRng() * 0.12));
         return { bets, mc };
     }
     function buildBet(type, label, line, overProb, odds) {

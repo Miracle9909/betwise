@@ -289,8 +289,9 @@
                         </div>
                     </div>
                     ${isFinished && bo > 1 && hasSeriesScore ? `<div class="es-series-result-bar">${aWon ? '🏆 ' + match.teamA.name : bWon ? '🏆 ' + match.teamB.name : ''} thắng BO${bo} (${match.scoreA}:${match.scoreB})</div>` : ''}
-                    ${isLive && bo > 1 ? `<div class="es-series-live-bar">🔴 Đang thi đấu Game ${(match.scoreA || 0) + (match.scoreB || 0) + 1} / BO${bo}</div>` : ''}
-                    ${renderMatchBadge(rec, bet, isToday)}
+                    ${isLive && bo > 1 ? `<div class="es-series-live-bar">🔴 Đang thi đấu Game ${(match.scoreA || 0) + (match.scoreB || 0) + 1} / BO${bo} (${match.scoreA || 0}:${match.scoreB || 0})</div>` : ''}
+                    ${!isFinished && !isLive && bo > 1 ? `<div class="es-series-upcoming-bar">📋 Game 1 / BO${bo}</div>` : ''}
+                    ${renderMatchBadge(rec, bet, isToday, match)}
                 </div>`;
     }
 
@@ -385,27 +386,28 @@
         if (toggle) toggle.textContent = collapsed ? '▼' : '▶';
     };
 
-    function renderMatchBadge(rec, bet, isToday) {
+    function renderMatchBadge(rec, bet, isToday, match) {
+        const boInfo = match && match.bestOf > 1 ? ` │ Game ${((match.scoreA || 0) + (match.scoreB || 0)) + 1}/BO${match.bestOf}` : '';
         if (bet && bet.result != null) {
             const won = bet.result === 'win';
             return `<div class="es-rec-badge ${won ? 'es-rec-win' : 'es-rec-loss'}">
-                ${won ? '✅ THẮNG' : '❌ THUA'} │ ${bet.betLabel}: ${bet.pickLabel} │ ${bet.pnl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(bet.pnl))}
+                ${won ? '✅ THẮNG' : '❌ THUA'} │ ${bet.betLabel}: ${bet.pickLabel}${boInfo} │ ${bet.pnl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(bet.pnl))}
             </div>`;
         }
         if (bet && bet.result === null) {
-            return `<div class="es-rec-badge es-rec-pending">⏳ Đang thi đấu... ₫${EsportsAnalyzer.fmtFull(bet.amount)}</div>`;
+            return `<div class="es-rec-badge es-rec-pending">⏳ Đang thi đấu${boInfo}... ₫${EsportsAnalyzer.fmtFull(bet.amount)}</div>`;
         }
         if (rec.action === 'BET' && isToday) {
             const tc = rec.confTier === 'elite' ? 'es-rec-elite' : rec.confTier === 'high' ? 'es-rec-high' : 'es-rec-medium';
             return `<div class="es-rec-badge ${tc}">
-                <div class="es-rec-header">🔮 ${rec.betLabel}: ${rec.pickLabel}</div>
-                <div class="es-rec-detail">P=${(rec.probability * 100).toFixed(0)}% │ Edge=+${(rec.edge * 100).toFixed(1)}% │ Kelly=${(rec.kelly * 100).toFixed(1)}% │ ₫${EsportsAnalyzer.fmt(rec.amount)}</div>
+                <div class="es-rec-header">🔮 ${rec.betLabel}: ${rec.pickLabel}${boInfo}</div>
+                <div class="es-rec-detail">P=${(rec.probability * 100).toFixed(0)}% │ Edge=+${(rec.edge * 100).toFixed(1)}% │ ₫${EsportsAnalyzer.fmt(rec.amount)}</div>
             </div>`;
         }
         if (rec.action === 'BET') {
             return `<div class="es-rec-badge es-rec-past">📊 P=${(rec.probability * 100).toFixed(0)}% Edge=+${(rec.edge * 100).toFixed(1)}%</div>`;
         }
-        return '<div class="es-rec-badge es-rec-skip">Không đủ edge — Theo dõi</div>';
+        return `<div class="es-rec-badge es-rec-skip">${rec.reason || 'Không đủ edge — Theo dõi'}</div>`;
     }
 
     // ===== MATCH SELECTION =====
@@ -545,7 +547,7 @@
                 }
                 if (!result && !autoRunAbort) { window.showToast?.('⏰ Timeout — bỏ qua', 'warning'); continue; }
             } else if (!result) {
-                const mc = EsportsAnalyzer.analyzeBetTypes(match.teamA, match.teamB, match.game);
+                const mc = EsportsAnalyzer.analyzeBetTypes(match.teamA, match.teamB, match.game, match.id);
                 result = { kills: Math.round(mc.mc.kills.mean), towers: Math.round(mc.mc.towers.mean), duration: Math.round(mc.mc.duration.mean) };
                 if (mc.mc.dragons) result.dragons = Math.round(mc.mc.dragons.mean);
             }
