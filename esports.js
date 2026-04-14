@@ -12,8 +12,8 @@ const EsportsAnalyzer = (() => {
     'use strict';
 
     const STORAGE_KEY = 'betwise_esports_v5';
-    const MIN_CONFIDENCE = 0.65;  // v7: allow more bets with multi-factor model
-    const MIN_EDGE = 0.06;        // v7: lower edge threshold
+    const MIN_CONFIDENCE = 0.68; // v7.2: raised from 0.65 — backtest showed low-conf (52.3%) barely breaks even
+    const MIN_EDGE = 0.05;        // v7.2: slight adjustment for better edge filteringthreshold
     const MONTE_CARLO_N = 2000;   // v6.1: increased from 500 for statistical stability
     const TZ_OFFSET_MS = 7 * 3600 * 1000; // GMT+7
     const MAX_DAILY_BETS = 999;   // v7: unlimited daily bets
@@ -565,7 +565,7 @@ const EsportsAnalyzer = (() => {
     }
     function buildBet(type, label, line, overProb, odds) {
         const op = Math.max(0.10, Math.min(0.90, overProb)), up = 1 - op;
-        const pick = op > 0.55 ? 'over' : up > 0.55 ? 'under' : null; // v7: back to 0.55 for more bets
+        const pick = op > 0.60 ? 'over' : up > 0.60 ? 'under' : null; // v7.2: raised from 0.55 — 55% errors were close calls
         return { type, label, line, overProb: op, underProb: up, odds, pick, pickProb: pick === 'over' ? op : pick === 'under' ? up : Math.max(op, up) };
     }
 
@@ -676,9 +676,15 @@ const EsportsAnalyzer = (() => {
             }
         }
 
+        // v7.2: Backtest-calibrated bet type priority: towers (65.1%) > time (61.2%) > kills (48.8%)
+        const BET_PRIORITY = { 'tower_ou': 1.15, 'time_ou': 1.08, 'dragon_ou': 1.05, 'kill_ou': 0.85 };
+
         let best = null, bestE = -Infinity;
         for (const b of bets) {
             if (!b.pick || b.pickProb < MIN_CONFIDENCE) continue;
+
+            // v7.2: Kill bets are BELOW break-even (48.8%) — only use for high confidence picks
+            if (b.type === 'kill_ou' && b.pickProb < 0.72) continue;
 
             // Multi-signal: prefer dominant direction, but allow single if p >= 0.72
             if (multiSig.confirmed && b.pick !== multiSig.direction) continue;
@@ -687,11 +693,13 @@ const EsportsAnalyzer = (() => {
             // Learning: skip bet types with < 50% historical accuracy (need 5+ samples)
             const acc = typeAccuracy[b.type];
             if (acc && acc.total >= 5 && (acc.wins / acc.total) < 0.50) {
-                console.log(`[v7 Learning] Skipping ${b.type}: ${acc.wins}/${acc.total} = ${(acc.wins / acc.total * 100).toFixed(0)}%`);
+                console.log(`[v7.2 Learning] Skipping ${b.type}: ${acc.wins}/${acc.total} = ${(acc.wins / acc.total * 100).toFixed(0)}%`);
                 continue;
             }
 
-            const e = b.pickProb * (b.odds - 1) - (1 - b.pickProb);
+            // Edge with priority boost for better-performing bet types
+            const priority = BET_PRIORITY[b.type] || 1.0;
+            const e = (b.pickProb * (b.odds - 1) - (1 - b.pickProb)) * priority;
             if (e > bestE && e >= MIN_EDGE) { bestE = e; best = b; }
         }
         if (!best) return { action: 'SKIP', reason: 'Không đủ edge — Theo dõi', bestBet: null, amount: 0, probability: 0, edge: 0 };

@@ -1,0 +1,50 @@
+{
+  "dota": {
+    "kills": {
+      "total": 467,
+      "correct": 228,
+      "pct": "48.8"
+    },
+    "towers": {
+      "total": 536,
+      "correct": 349,
+      "pct": "65.1"
+    },
+    "time": {
+      "total": 139,
+      "correct": 85,
+      "pct": "61.2"
+    },
+    "all": {
+      "total": 1142,
+      "correct": 662,
+      "pct": "58.0"
+    }
+  },
+  "lol": {
+    "total": 546,
+    "note": "LoL API lacks per-game kill/tower stats — only match outcomes available"
+  },
+  "combined": {
+    "kills": {
+      "total": 467,
+      "correct": 228,
+      "pct": "48.8"
+    },
+    "towers": {
+      "total": 536,
+      "correct": 349,
+      "pct": "65.1"
+    },
+    "time": {
+      "total": 139,
+      "correct": 85,
+      "pct": "61.2"
+    },
+    "all": {
+      "total": 1688,
+      "correct": 662,
+      "pct": "39.2"
+    }
+  }
+}
