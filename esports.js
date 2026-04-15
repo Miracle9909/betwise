@@ -1,5 +1,5 @@
 /**
- * BetWise Esports Analyzer v5.1 — Deep Backtest Calibrated
+ * BetWise Esports Analyzer v5.2 — Deep Backtest Calibrated + Bookmaker Lines
  *
  * Data Sources:
  * - Dota 2: OpenDota API (/proMatches) — real pro match results
@@ -8,12 +8,14 @@
  * Algorithms: Multi-Factor v7.3, Poisson, Monte Carlo (N=2000), Adaptive Half-Kelly
  * Calibrated:
  *   Dota2: 198-game grid search → Kill=60.5 Tower=10.5 Time=32.5 → 82.4%
- *   LoL:   59-game LPL backtest → Kill=20.5 Tower=11.5 Time=33.5 Dragon=4.5 → 90%+
+ *   LoL:   59-game LPL backtest → Kill=28.5 Tower=11.5 Time=32 Dragon=4.5
+ *   LoL Kill line: 27.5 (KR/LCK) | 28.5 (default) | 29.5 (CN/LPL aggressive)
+ *   LoL Time line: 31 (LPL/VCS) | 32 (default) | 33 (LCK)
  */
 const EsportsAnalyzer = (() => {
     'use strict';
 
-    const STORAGE_KEY = 'betwise_esports_v5';
+    const STORAGE_KEY = 'betwise_esports_v6'; // v6: bumped for new bookmaker lines (kill 28.5 dynamic, tower 11.5, dragon 4.5)
     const MIN_CONFIDENCE = 0.68; // v7.2: raised from 0.65 — backtest showed low-conf (52.3%) barely breaks even
     const MIN_EDGE = 0.05;        // v7.2: slight adjustment for better edge filteringthreshold
     const MONTE_CARLO_N = 2000;   // v6.1: increased from 500 for statistical stability
@@ -22,15 +24,41 @@ const EsportsAnalyzer = (() => {
     const MAX_CONCURRENT_BETS = 10; // v7: up to 10 at once
     const MAX_CONSECUTIVE_LOSS = 5; // v7: relaxed stop-loss
 
-    // ===== BOOKMAKER LINES — v7.3+LoL Calibrated from deep backtest =====
+    // ===== BOOKMAKER LINES — v8.0 Realistic Bookmaker Lines =====
     const BASE_LINES = {
         dota2: { tower: 10.5, kill: 60.5, time: 32.5 },  // v7.3 OPTIMAL: T=86% K=83% D=78% → 82.4% overall
-        lol: { tower: 11.5, kill: 20.5, time: 33.5, dragon: 4.5 }  // v7.5 LoL: Tower=11.5 Dragon=4.5 (user-calibrated)
+        lol: { tower: 11.5, kill: 28.5, time: 32, dragon: 4.5 }  // v8.0: Kill+Time calibrated by league, Tower+Dragon user-calibrated
+    };
+    // League-specific kill lines for LoL — bookmakers adjust by league aggression
+    const LOL_KILL_LINES = {
+        'lck': 27.5,      // KR: more strategic, fewer kills
+        'lpl': 29.5,      // CN: aggressive, more kills
+        'lec': 28.5,      // EU: balanced
+        'lcs': 28.5,      // NA: balanced
+        'worlds': 28.5,   // International: mixed
+        'msi': 28.5,      // International
+        'vcs': 29.5,      // VN: aggressive style
+        'pcs': 28.5,      // Pacific
+        'cblol': 29.5,    // BR: aggressive
+        'default': 28.5,  // Default for unknown leagues
+    };
+    // League-specific time lines for LoL (31/32/33 tùy giải)
+    const LOL_TIME_LINES = {
+        'lck': 33,        // KR: longer games, macro-heavy
+        'lpl': 31,        // CN: fast-paced, early fights
+        'lec': 32,        // EU: balanced
+        'lcs': 32,        // NA: balanced
+        'worlds': 32,     // International
+        'msi': 32,        // International
+        'vcs': 31,        // VN: aggressive, short games
+        'pcs': 32,        // Pacific
+        'cblol': 31,      // BR: aggressive
+        'default': 32,    // Default
     };
     // Game-specific BET_PRIORITY — calibrated per backtest accuracy
     const GAME_BET_PRIORITY = {
         dota2: { 'tower_ou': 1.15, 'time_ou': 1.08, 'kill_ou': 0.85, 'dragon_ou': 1.05 }, // Dota2 towers best
-        lol: { 'dragon_ou': 1.30, 'tower_ou': 1.25, 'kill_ou': 1.10, 'time_ou': 1.00 }   // LoL dragons+towers best
+        lol: { 'dragon_ou': 1.20, 'tower_ou': 1.15, 'kill_ou': 1.10, 'time_ou': 1.00 }   // LoL adjusted for realistic lines
     };
     // Dynamic lines computed from real data
     let dynamicLines = null;
@@ -254,9 +282,25 @@ const EsportsAnalyzer = (() => {
         console.log('[Esports] Dynamic lines calibrated:', dynamicLines.dota2, `(from ${finished.length} matches)`);
     }
 
-    function getLines(game) {
-        if (dynamicLines && dynamicLines[game]) return dynamicLines[game];
-        return BASE_LINES[game];
+    function getLines(game, league) {
+        let lines = (dynamicLines && dynamicLines[game]) ? { ...dynamicLines[game] } : { ...BASE_LINES[game] };
+        // League-specific kill + time lines for LoL
+        if (game === 'lol' && league) {
+            const leagueLower = league.toLowerCase();
+            for (const [key, killLine] of Object.entries(LOL_KILL_LINES)) {
+                if (key !== 'default' && leagueLower.includes(key)) {
+                    lines.kill = killLine;
+                    break;
+                }
+            }
+            for (const [key, timeLine] of Object.entries(LOL_TIME_LINES)) {
+                if (key !== 'default' && leagueLower.includes(key)) {
+                    lines.time = timeLine;
+                    break;
+                }
+            }
+        }
+        return lines;
     }
 
     function mapOpenDotaToMatch(raw, index, allRawDota) {
@@ -264,7 +308,7 @@ const EsportsAnalyzer = (() => {
         const teamB = mapTeamFromName(raw.dire_name, 'dota2', allRawDota);
         const time = toGMT7Time(raw.start_time * 1000);
         const matchId = `d2_real_${raw.match_id}`;
-        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'dota2', matchId);
+        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'dota2', matchId, raw.league_name);
 
         const hasResult = raw.radiant_score != null && raw.dire_score != null;
         const realResult = hasResult ? {
@@ -313,7 +357,8 @@ const EsportsAnalyzer = (() => {
         const isFinished = raw.state === 'completed' || raw.state === 'finished';
         const isLive = raw.state === 'inProgress' || raw.state === 'live';
         const matchId = `lol_${raw.id || index}_${dateStr}`;
-        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol', matchId);
+        const leagueName = raw.league || 'LoL Esports';
+        const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol', matchId, leagueName);
 
         // Series scores from API
         const scoreA = raw.teamA?.score ?? null;
@@ -423,12 +468,13 @@ const EsportsAnalyzer = (() => {
             const time = `${String(hour).padStart(2, '0')}:${min}`;
 
             const matchId = `lol_sim_${dateStr}_${i}`;
-            const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol', matchId);
+            const leagueForSim = leagues[Math.floor(rng() * leagues.length)];
+            const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol', matchId, leagueForSim);
             matches.push({
                 id: `lol_sim_${dateStr}_${i}`,
                 game: 'lol',
                 teamA, teamB, time,
-                league: leagues[Math.floor(rng() * leagues.length)],
+                league: leagueForSim,
                 bets, mc,
                 status: 'upcoming',
                 result: null,
@@ -559,8 +605,8 @@ const EsportsAnalyzer = (() => {
     }
 
     // ===== BET ANALYSIS (uses dynamic lines + seeded MC) =====
-    function analyzeBetTypes(tA, tB, game, matchId) {
-        const mc = mcSim(tA, tB, game, MONTE_CARLO_N, matchId), l = getLines(game), bets = [];
+    function analyzeBetTypes(tA, tB, game, matchId, league) {
+        const mc = mcSim(tA, tB, game, MONTE_CARLO_N, matchId), l = getLines(game, league), bets = [];
         // Use seeded RNG for odds variation too (deterministic per match)
         const oddsRng = matchId ? matchRng(matchId + '_odds') : Math.random.bind(Math);
         bets.push(buildBet('tower_ou', 'Tài/Xỉu Trụ', l.tower, poissonOP(mc.towers.mean, l.tower), 1.80 + oddsRng() * 0.15));
@@ -568,6 +614,31 @@ const EsportsAnalyzer = (() => {
         const tOP = mc.duration.samples.filter(d => d > l.time).length / mc.duration.samples.length;
         bets.push(buildBet('time_ou', 'Tài/Xỉu Thời gian', l.time, tOP, 1.85 + oddsRng() * 0.10));
         if (game === 'lol' && mc.dragons) bets.push(buildBet('dragon_ou', 'Tài/Xỉu Rồng', l.dragon, poissonOP(mc.dragons.mean, l.dragon), 1.83 + oddsRng() * 0.12));
+
+        // v8.0: NEW SPECIAL MARKETS
+        if (game === 'dota2') {
+            // Mega Creeps: probability based on game duration (>50min proxy)
+            const megaProb = mc.duration.samples.filter(d => d > 50).length / mc.duration.samples.length;
+            bets.push({
+                type: 'mega_creeps', label: '🏰 Lính Siêu Cấp', line: 0, overProb: megaProb, underProb: 1 - megaProb,
+                odds: 2.20 + oddsRng() * 0.30, pick: megaProb > 0.25 ? 'yes' : megaProb < 0.12 ? 'no' : null,
+                pickProb: megaProb > 0.25 ? megaProb : megaProb < 0.12 ? (1 - megaProb) : 0.5, isSpecial: true
+            });
+        }
+        if (game === 'lol' && mc.dragons) {
+            // Dragon Soul: ≥4 dragons = soul obtained
+            const soulProb = mc.dragons.samples.filter(d => d >= 4).length / mc.dragons.samples.length;
+            bets.push({
+                type: 'dragon_soul', label: '🐲 Linh Hồn Rồng', line: 0, overProb: soulProb, underProb: 1 - soulProb,
+                odds: 1.85 + oddsRng() * 0.20, pick: soulProb > 0.60 ? 'yes' : soulProb < 0.35 ? 'no' : null,
+                pickProb: soulProb > 0.60 ? soulProb : soulProb < 0.35 ? (1 - soulProb) : Math.max(soulProb, 1 - soulProb), isSpecial: true
+            });
+
+            // Inhibitor O/U 1.5 — proxy: towers > 9 = high inhib probability
+            const inhibProb = mc.towers.samples.filter(t => t > 9).length / mc.towers.samples.length;
+            bets.push(buildBet('inhibitor_ou', 'Tài/Xỉu Trụ Nhà Lính', 1.5, inhibProb, 1.80 + oddsRng() * 0.15));
+        }
+
         return { bets, mc };
     }
     function buildBet(type, label, line, overProb, odds) {
@@ -836,7 +907,7 @@ const EsportsAnalyzer = (() => {
     }
 
     return {
-        LINES: BASE_LINES, TOP_TEAMS, TOP_DOTA2, TOP_LOL, getLines, calibrateLines,
+        LINES: BASE_LINES, LOL_KILL_LINES, LOL_TIME_LINES, TOP_TEAMS, TOP_DOTA2, TOP_LOL, getLines, calibrateLines,
         loadState, saveState, resetState, defaultState,
         loadMatchesForDate, generateRecommendation, analyzeBetTypes, adaptiveKelly,
         winProbability, simulateResult, resolveBet, fetchMatchResult, resolvePrediction, calcPredictionWinRate,

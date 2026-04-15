@@ -10,6 +10,8 @@
     let autoRunAbort = false;
     let dataSource = 'loading';
     let selectedMatches = new Set(); // User-selected matches for betting
+    let gameFilter = 'all'; // 'all' | 'dota2' | 'lol'
+    let autoSettleTimer = null;
 
     // ===== INIT =====
     async function initEsports() {
@@ -42,6 +44,17 @@
     }
 
     async function refreshMatches(dateStr, showLoading) {
+        // Show skeleton loading
+        const container = document.getElementById('esMatchList');
+        if (container) {
+            container.innerHTML = Array.from({ length: 4 }, () => `
+                <div class="es-skeleton-card">
+                    <div class="es-sk-line short"></div>
+                    <div class="es-sk-line long"></div>
+                    <div class="es-sk-line medium"></div>
+                    <div class="es-sk-line xl"></div>
+                </div>`).join('');
+        }
         try {
             const matches = await EsportsAnalyzer.loadMatchesForDate(dateStr);
             if (matches.length > 0) {
@@ -51,6 +64,8 @@
                 esState.matchCache[dateStr] = matches;
                 EsportsAnalyzer.saveState(esState);
                 renderAll();
+                checkEdgeAlerts(matches);
+                startAutoSettlement();
                 if (showLoading) {
                     const realCount = matches.filter(m => m.isReal).length;
                     window.showToast?.(`✅ ${matches.length} trận (${realCount} thực) — ${EsportsAnalyzer.formatDate(dateStr)}`, 'success');
@@ -174,21 +189,42 @@
         }
         const realCount = currentMatches.filter(m => m.isReal).length;
         const simCount = currentMatches.filter(m => !m.isReal).length;
+        const dotaCount = currentMatches.filter(m => m.game === 'dota2').length;
+        const lolCount = currentMatches.filter(m => m.game === 'lol').length;
 
+        let sourceText = '';
         if (dataSource === 'live') {
-            el.innerHTML = `<span class="es-source-live">🔴 LIVE DATA</span> — OpenDota API — ${realCount} trận Dota 2 thực${simCount > 0 ? ` + ${simCount} LoL giả lập` : ''}`;
+            sourceText = `<span class="es-source-live">🔴 LIVE DATA</span> — ${realCount} thực${simCount > 0 ? ` + ${simCount} giả lập` : ''}`;
             el.className = 'es-data-source live';
         } else if (dataSource === 'simulator') {
-            el.innerHTML = '<span class="es-source-sim">🟡 SIMULATOR</span> — Dữ liệu giả lập từ giải đấu thực';
+            sourceText = '<span class="es-source-sim">🟡 SIMULATOR</span> — Dữ liệu giả lập';
             el.className = 'es-data-source sim';
         } else if (dataSource === 'empty') {
-            el.innerHTML = '<span class="es-source-sim">📭</span> — Không tìm thấy trận top 50 trong ngày này';
+            sourceText = '<span class="es-source-sim">📭</span> — Không tìm thấy trận';
             el.className = 'es-data-source sim';
         } else {
-            el.innerHTML = '<span class="es-source-sim">⏳</span> Đang tải...';
+            sourceText = '<span class="es-source-sim">⏳</span> Đang tải...';
             el.className = 'es-data-source sim';
         }
+
+        // Game Filter Toggle
+        el.innerHTML = sourceText + `
+            <div class="es-game-filter">
+                <button class="es-game-filter-btn ${gameFilter === 'all' ? 'active' : ''}" onclick="setGameFilter('all')">
+                    Tất cả <span class="es-gf-count">${currentMatches.length}</span>
+                </button>
+                <button class="es-game-filter-btn ${gameFilter === 'dota2' ? 'active' : ''}" onclick="setGameFilter('dota2')">
+                    🎮 Dota 2 <span class="es-gf-count">${dotaCount}</span>
+                </button>
+                <button class="es-game-filter-btn ${gameFilter === 'lol' ? 'active' : ''}" onclick="setGameFilter('lol')">
+                    🐉 LoL <span class="es-gf-count">${lolCount}</span>
+                </button>
+            </div>`;
     }
+    window.setGameFilter = function (filter) {
+        gameFilter = filter;
+        renderAll();
+    };
 
     // ===== CAPITAL =====
     function renderCapital() {
@@ -272,7 +308,6 @@
                         <div class="es-team ${aWon ? 'es-team-winner' : ''}">
                             <span class="es-team-logo">${match.teamA.logo}</span>
                             <span class="es-team-name">${match.teamA.name}</span>
-                            <span class="es-team-elo">Elo ${match.teamA.elo}</span>
                         </div>
                         <div class="es-vs-block">
                             ${hasSeriesScore
@@ -285,7 +320,6 @@
                         <div class="es-team ${bWon ? 'es-team-winner' : ''}">
                             <span class="es-team-logo">${match.teamB.logo}</span>
                             <span class="es-team-name">${match.teamB.name}</span>
-                            <span class="es-team-elo">Elo ${match.teamB.elo}</span>
                         </div>
                     </div>
                     ${isFinished && bo > 1 && hasSeriesScore ? `<div class="es-series-result-bar">${aWon ? '🏆 ' + match.teamA.name : bWon ? '🏆 ' + match.teamB.name : ''} thắng BO${bo} (${match.scoreA}:${match.scoreB})</div>` : ''}
@@ -300,19 +334,22 @@
         if (!container) return;
         const isToday = esState.viewingDate === EsportsAnalyzer.todayStr();
 
-        if (currentMatches.length === 0) {
+        // Apply game filter
+        const filtered = gameFilter === 'all' ? currentMatches : currentMatches.filter(m => m.game === gameFilter);
+
+        if (filtered.length === 0) {
             container.innerHTML = `<div class="empty-state">
                 <div class="es-empty-icon">📭</div>
-                <p>Không có trận hợp lệ ngày ${EsportsAnalyzer.formatDate(esState.viewingDate)}</p>
-                <p style="opacity:0.5;font-size:12px;">Top 30 teams + Tier 1 leagues (LCK, LPL, LEC, DPC, PGL...)</p>
+                <p>${gameFilter !== 'all' ? `Không có trận ${gameFilter === 'dota2' ? 'Dota 2' : 'LoL'}` : 'Không có trận hợp lệ'} ngày ${EsportsAnalyzer.formatDate(esState.viewingDate)}</p>
+                <p style="opacity:0.5;font-size:12px;">Top 30 teams + Tier 1 leagues</p>
             </div>`;
             return;
         }
 
         // Split matches by status
-        const liveMatches = currentMatches.filter(m => m.status === 'live');
-        const upcomingMatches = currentMatches.filter(m => m.status === 'upcoming');
-        const finishedMatches = currentMatches.filter(m => m.status === 'finished' || esState.bets.find(b => b.matchId === m.id)?.result != null);
+        const liveMatches = filtered.filter(m => m.status === 'live');
+        const upcomingMatches = filtered.filter(m => m.status === 'upcoming');
+        const finishedMatches = filtered.filter(m => m.status === 'finished' || esState.bets.find(b => b.matchId === m.id)?.result != null);
 
         let html = '';
 
@@ -547,7 +584,7 @@
                 }
                 if (!result && !autoRunAbort) { window.showToast?.('⏰ Timeout — bỏ qua', 'warning'); continue; }
             } else if (!result) {
-                const mc = EsportsAnalyzer.analyzeBetTypes(match.teamA, match.teamB, match.game, match.id);
+                const mc = EsportsAnalyzer.analyzeBetTypes(match.teamA, match.teamB, match.game, match.id, match.league);
                 result = { kills: Math.round(mc.mc.kills.mean), towers: Math.round(mc.mc.towers.mean), duration: Math.round(mc.mc.duration.mean) };
                 if (mc.mc.dragons) result.dragons = Math.round(mc.mc.dragons.mean);
             }
@@ -709,7 +746,8 @@
             ${seriesHTML}
             <div class="es-modal-section"><div class="es-modal-label">Win Probability</div><div class="es-wp-bar"><div class="es-wp-fill" style="width:${(wp * 100).toFixed(0)}%">${match.teamA.name} ${(wp * 100).toFixed(0)}%</div></div></div>
             <div class="es-modal-section"><div class="es-modal-label">H2H Record</div><div class="es-modal-h2h"><span>${match.teamA.name}: ${h2h.wins}W</span><span class="es-h2h-total">${h2h.total} trận</span><span>${match.teamB.name}: ${h2h.losses}W</span></div></div>
-            <div class="es-modal-section"><div class="es-modal-label">Phân tích kèo</div>${match.bets.map(b => { const e = b.pick ? ((b.pickProb * (b.odds - 1) - (1 - b.pickProb)) * 100).toFixed(1) : '0'; return `<div class="es-bet-analysis"><span class="es-bet-type">${b.label}</span><span class="es-bet-line">Line: ${b.line}</span><span class="es-bet-odds">Odds: ${b.odds.toFixed(2)}</span><span class="es-bet-prob">Tài: ${(b.overProb * 100).toFixed(0)}% │ Xỉu: ${(b.underProb * 100).toFixed(0)}%</span>${b.pick ? `<span class="es-bet-pick ${Number(e) > 5 ? 'es-win' : ''}">→ ${b.pick === 'over' ? 'Tài' : 'Xỉu'} (Edge: +${e}%)</span>` : '<span class="es-bet-pick">Không đủ edge</span>'}</div>`; }).join('')}</div>
+            <div class="es-modal-section"><div class="es-modal-label">Phân tích kèo</div>${match.bets.filter(b => !b.isSpecial).map(b => { const e = b.pick ? ((b.pickProb * (b.odds - 1) - (1 - b.pickProb)) * 100).toFixed(1) : '0'; return `<div class="es-bet-analysis"><span class="es-bet-type">${b.label}</span><span class="es-bet-line">Line: ${b.line}</span><span class="es-bet-odds">Odds: ${b.odds.toFixed(2)}</span><span class="es-bet-prob">Tài: ${(b.overProb * 100).toFixed(0)}% │ Xỉu: ${(b.underProb * 100).toFixed(0)}%</span>${b.pick ? `<span class="es-bet-pick ${Number(e) > 5 ? 'es-win' : ''}">→ ${b.pick === 'over' ? 'Tài' : 'Xỉu'} (Edge: +${e}%)</span>` : '<span class="es-bet-pick">Không đủ edge</span>'}</div>`; }).join('')}</div>
+            ${match.bets.filter(b => b.isSpecial).length > 0 ? `<div class="es-modal-section"><div class="es-modal-label">🔮 Kèo đặc biệt</div>${match.bets.filter(b => b.isSpecial).map(b => { const cssClass = b.type === 'mega_creeps' ? 'mega-creeps' : b.type === 'dragon_soul' ? 'dragon-soul' : 'inhibitor'; const pickLabel = b.pick === 'yes' ? 'Có' : b.pick === 'no' ? 'Không' : '—'; return `<div class="es-bet-analysis"><span class="es-market-special ${cssClass}">${b.label}</span><span class="es-bet-odds">Odds: ${b.odds.toFixed(2)}</span><span class="es-bet-prob">Có: ${(b.overProb * 100).toFixed(0)}% │ Không: ${(b.underProb * 100).toFixed(0)}%</span>${b.pick ? `<span class="es-bet-pick ${b.pickProb > 0.65 ? 'es-win' : ''}">→ ${pickLabel} (P=${(b.pickProb * 100).toFixed(0)}%)</span>` : '<span class="es-bet-pick">Theo dõi</span>'}</div>`; }).join('')}</div>` : ''}
             ${rec.action === 'BET' ? `<div class="es-modal-section es-modal-rec"><div class="es-modal-label">🔮 Khuyến nghị</div><div class="es-rec-summary"><div><strong>${rec.betLabel}: ${rec.pickLabel}</strong></div><div>Mức cược: <strong>₫${EsportsAnalyzer.fmtFull(rec.amount)}</strong> (${(rec.kelly * 100).toFixed(1)}% Kelly)</div><div>${rec.reason}</div></div></div>` : ''}
             ${match.result ? `<div class="es-modal-section"><div class="es-modal-label">Kết quả ${match.isReal ? 'thực' : 'giả lập'}</div><div class="es-result-grid"><div class="es-result-item"><span>Mạng</span><strong>${match.result.kills}</strong></div><div class="es-result-item"><span>Trụ</span><strong>${match.result.towers}</strong></div><div class="es-result-item"><span>Thời gian</span><strong>${match.result.duration}p</strong></div>${match.result.dragons != null ? `<div class="es-result-item"><span>Rồng</span><strong>${match.result.dragons}</strong></div>` : ''}</div></div>` : ''}
             ${bet ? `<div class="es-modal-section"><div class="es-modal-label">Lệnh đặt</div><div class="es-bet-record ${bet.result === 'win' ? 'es-win' : bet.result === 'loss' ? 'es-loss' : ''}"><div>${bet.betLabel}: ${bet.pickLabel} @ ${bet.odds.toFixed(2)}</div><div>₫${EsportsAnalyzer.fmtFull(bet.amount)}</div>${bet.result ? `<div>${bet.result === 'win' ? '✅ Thắng' : '❌ Thua'} — ${bet.pnl >= 0 ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(bet.pnl))}</div>` : '<div>⏳ Đang thi đấu...</div>'}</div></div>` : ''}`;
@@ -788,6 +826,63 @@
     };
 
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') EsportsAnalyzer.saveState(esState); });
+
+    // ===== EDGE ALERT =====
+    function checkEdgeAlerts(matches) {
+        const isToday = esState.viewingDate === EsportsAnalyzer.todayStr();
+        if (!isToday) return;
+        for (const m of matches) {
+            if (m.status !== 'upcoming') continue;
+            const rec = EsportsAnalyzer.generateRecommendation(m.bets, esState.capital, esState.streak || 0, esState.sessionPL || 0, esState.predictions, m.teamA, m.teamB, esState.bets);
+            if (rec.action === 'BET' && rec.edge > 0.20) {
+                const toast = document.getElementById('toast');
+                if (toast) {
+                    toast.textContent = `🔥 KÈO THƠM: ${m.teamA.name} vs ${m.teamB.name} — ${rec.betLabel} Edge +${(rec.edge * 100).toFixed(0)}%`;
+                    toast.className = 'toast edge-alert';
+                    setTimeout(() => toast.className = 'toast hidden', 5000);
+                }
+                break; // Only show 1 alert
+            }
+        }
+    }
+
+    // ===== AUTO-SETTLEMENT =====
+    function startAutoSettlement() {
+        if (autoSettleTimer) clearInterval(autoSettleTimer);
+        const isToday = esState.viewingDate === EsportsAnalyzer.todayStr();
+        if (!isToday) return;
+        autoSettleTimer = setInterval(async () => {
+            const pending = currentMatches.filter(m => (m.status === 'live' || m.status === 'finished') && !m.result);
+            if (pending.length === 0) return;
+            let changed = false;
+            for (const m of pending) {
+                try {
+                    const result = await EsportsAnalyzer.fetchMatchResult(m);
+                    if (result) {
+                        m.result = result;
+                        m.status = 'finished';
+                        // Resolve any bets placed on this match
+                        const bet = esState.bets.find(b => b.matchId === m.id && !b.result);
+                        if (bet) {
+                            const resolution = EsportsAnalyzer.resolveBet(bet, result);
+                            bet.result = resolution.won ? 'win' : 'loss';
+                            bet.pnl = resolution.pnl;
+                            bet.actual = resolution.actual;
+                            esState.capital += resolution.pnl;
+                            esState.streak = resolution.won ? Math.max(1, (esState.streak || 0) + 1) : Math.min(-1, (esState.streak || 0) - 1);
+                            esState.sessionPL = (esState.sessionPL || 0) + resolution.pnl;
+                            window.showToast?.(`${resolution.won ? '✅ Thắng' : '❌ Thua'} ${m.teamA.name} vs ${m.teamB.name}: ${resolution.won ? '+' : ''}₫${EsportsAnalyzer.fmtFull(Math.abs(resolution.pnl))}`, resolution.won ? 'success' : 'error');
+                        }
+                        changed = true;
+                    }
+                } catch { /* skip */ }
+            }
+            if (changed) {
+                EsportsAnalyzer.saveState(esState);
+                renderAll();
+            }
+        }, 60000); // Poll every 60s
+    }
 
     window.EsportsUI = { initEsports, renderAll };
 })();

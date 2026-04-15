@@ -4,7 +4,7 @@
  * Simulates the v7.4 O/U strategy against real historical data for both Dota2 and LoL.
  * Uses the exact same lines and logic from the production engine:
  *   Dota2: Kill=60.5, Tower=10.5, Time=32.5
- *   LoL:   Kill=20.5, Tower=13.5, Time=33.5, Dragon=5.5
+ *   LoL:   Kill=28.5, Tower=11.5, Time=32, Dragon=4.5
  * 
  * Data sources:
  *   - Dota2: OpenDota API /proMatches (paginated by less_than_match_id)
@@ -17,7 +17,7 @@ const fs = require('fs');
 // ===== v7.4 CALIBRATED LINES =====
 const LINES = {
     dota2: { kill: 60.5, tower: 10.5, time: 32.5 },
-    lol: { kill: 20.5, tower: 13.5, time: 33.5, dragon: 5.5 }
+    lol: { kill: 28.5, tower: 11.5, time: 32, dragon: 4.5 }
 };
 
 const MIN_CONFIDENCE = 0.55; // Pick threshold from grid search
@@ -238,19 +238,19 @@ function runSimulation(dota2Matches, lolGames) {
         const dragonR = simulateOverUnder(g.dragons, LINES.lol.dragon);
 
         // Strategy from backtest:
-        // Kill 20.5 → 81.4% OVER (median kills = 27.5, way above 20.5)
+        // Kill 28.5 → realistic bookmaker line (median kills = 27.5)
         const killPick = 'over';
         const killWin = killR.isOver;
 
-        // Tower 13.5 → 91.5% UNDER (median towers = 10.8, way below 13.5)
+        // Tower 11.5 → user-calibrated line (median towers = 10.8)
         const towerPick = 'under';
         const towerWin = !towerR.isOver;
 
-        // Time 33.5 → 74.6% UNDER (median time = 30.1, below 33.5)
+        // Time 32 → user-calibrated line (31/32/33 tùy giải, median time = 30.1)
         const timePick = 'under';
         const timeWin = !timeR.isOver;
 
-        // Dragon 5.5 → 93.2% UNDER (median dragons = 4.2, way below 5.5)
+        // Dragon 4.5 → user-calibrated line (median dragons = 4.2)
         const dragonPick = 'under';
         const dragonWin = !dragonR.isOver;
 

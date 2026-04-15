@@ -4,7 +4,7 @@
  *
  * BOOKMAKER LINES (user-calibrated):
  *   Dota 2: Tower=12.5, Time=40m, Kill=60.5
- *   LoL:    Tower=11.5, Dragon=4.5, Time=31m, Kill=20.5
+ *   LoL:    Tower=11.5, Dragon=4.5, Time=31m, Kill=28.5
  */
 (function () {
     'use strict';
@@ -12,7 +12,7 @@
     // ===== CORRECT BOOKMAKER LINES =====
     const BK_LINES = {
         dota2: { kill: 60.5, tower: 12.5, time: 40 },
-        lol: { kill: 20.5, tower: 11.5, dragon: 4.5, time: 31 }
+        lol: { kill: 28.5, tower: 11.5, dragon: 4.5, time: 31 }
     };
 
     // ===== RESULTS STORAGE =====
@@ -59,7 +59,11 @@
     }
 
     function predictFromMatch(match, game) {
-        const lines = BK_LINES[game] || BK_LINES.lol;
+        // Use dynamic league-aware lines from EsportsAnalyzer when available
+        const league = match.league || match.leagueName || '';
+        const lines = (typeof EsportsAnalyzer !== 'undefined' && EsportsAnalyzer.getLines)
+            ? EsportsAnalyzer.getLines(game, league)
+            : (BK_LINES[game] || BK_LINES.lol);
         const preds = [];
 
         // Get team stats from EsportsAnalyzer
@@ -165,7 +169,7 @@
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.72rem;color:var(--on-surface-variant);line-height:1.6">
                 <div><strong>Dota 2:</strong> Tower ${BK_LINES.dota2.tower} • Time ${BK_LINES.dota2.time}m • Kill ${BK_LINES.dota2.kill}</div>
-                <div><strong>LoL:</strong> Tower ${BK_LINES.lol.tower} • Dragon ${BK_LINES.lol.dragon} • Time ${BK_LINES.lol.time}m</div>
+                <div><strong>LoL:</strong> Tower ${BK_LINES.lol.tower} • Dragon ${BK_LINES.lol.dragon} • Kill 27.5~29.5 • Time 31~33m</div>
             </div>
         </section>`;
 
@@ -281,7 +285,10 @@
         return `
         <div class="glass-card" style="margin-bottom:12px;padding:18px;${isLive ? 'border-left:3px solid #ef4444;' : ''}">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <span style="font-size:0.7rem;font-weight:600;color:var(--on-surface-variant);text-transform:uppercase">${league}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:0.7rem;font-weight:600;color:var(--on-surface-variant);text-transform:uppercase">${league}</span>
+                    ${match.bestOf > 1 ? `<span style="font-size:0.55rem;padding:1px 5px;border-radius:4px;background:rgba(74,94,229,0.08);color:var(--primary);font-weight:700">BO${match.bestOf}${match.scoreA != null ? ' (' + match.scoreA + ':' + match.scoreB + ')' : ''}</span>` : ''}
+                </div>
                 <div style="display:flex;align-items:center;gap:6px">
                     <span style="font-size:0.6rem;padding:2px 6px;border-radius:6px;background:${isDota ? 'rgba(220,38,38,0.08)' : 'rgba(74,94,229,0.08)'};color:${isDota ? '#dc2626' : 'var(--primary)'};font-weight:700">${isDota ? 'Dota 2' : 'LoL'}</span>
                     <span style="font-size:0.7rem;color:var(--on-surface-variant)">${isLive ? '🔴 LIVE' : '🕐 ' + time}</span>
@@ -293,7 +300,6 @@
                     <span class="es-team-logo">${tA.logo || '🎮'}</span>
                     <div>
                         <div style="font-size:0.88rem;font-weight:700;color:var(--on-surface)">${tA.name || '?'}</div>
-                        <div style="font-size:0.62rem;color:var(--on-surface-variant)">ELO ${tA.elo || '?'}</div>
                     </div>
                 </div>
                 <div style="text-align:center;padding:0 10px">
@@ -304,7 +310,6 @@
                     <span class="es-team-logo">${tB.logo || '🎮'}</span>
                     <div style="text-align:right">
                         <div style="font-size:0.88rem;font-weight:700;color:var(--on-surface)">${tB.name || '?'}</div>
-                        <div style="font-size:0.62rem;color:var(--on-surface-variant)">ELO ${tB.elo || '?'}</div>
                     </div>
                 </div>
             </div>
@@ -338,21 +343,84 @@
     }
 
     function renderFinishedSummary(matches) {
-        let html = '<div style="display:flex;flex-direction:column;gap:6px">';
+        let html = '<div style="display:flex;flex-direction:column;gap:8px">';
         matches.forEach(m => {
             const game = m.game || 'lol';
             const pred = predictFromMatch(m, game);
             const tA = m.teamA || {};
             const tB = m.teamB || {};
+            const result = m.result || {};
+            const hasResult = result.kills != null || result.towers != null;
+            const bo = m.bestOf || 1;
+            const hasSeriesScore = m.scoreA != null && m.scoreB != null;
+            const isDota = game === 'dota2';
+
+            // Check each prediction against actual result
+            let predResults = [];
+            if (hasResult && pred.preds.length > 0) {
+                pred.preds.forEach(p => {
+                    let actual = null;
+                    let line = p.line;
+                    if (p.market === 'kill' && result.kills != null) actual = result.kills;
+                    else if (p.market === 'tower' && result.towers != null) actual = result.towers;
+                    else if (p.market === 'dragon' && result.dragons != null) actual = result.dragons;
+                    else if (p.market === 'time' && result.duration != null) actual = result.duration;
+
+                    if (actual != null) {
+                        const actualSignal = actual > line ? 'TÀI' : 'XỈU';
+                        const won = actualSignal === p.signal;
+                        predResults.push({ ...p, actual, won });
+                    }
+                });
+            }
+
+            const totalPreds = predResults.length;
+            const totalWins = predResults.filter(r => r.won).length;
+
             html += `
-            <div class="glass-card" style="padding:12px;display:flex;align-items:center;gap:10px">
+        <div class="glass-card" style="padding:14px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
                 <span class="es-team-logo" style="width:28px;height:28px;min-width:28px;font-size:0.75rem">${tA.logo || '🎮'}</span>
                 <div style="flex:1;min-width:0">
                     <div style="font-size:0.78rem;font-weight:600;color:var(--on-surface)">${tA.name || '?'} vs ${tB.name || '?'}</div>
-                    <div style="font-size:0.62rem;color:var(--on-surface-variant)">${m.league || ''} • ${game === 'dota2' ? 'Dota 2' : 'LoL'}</div>
+                    <div style="font-size:0.62rem;color:var(--on-surface-variant)">${m.league || ''} • ${isDota ? 'Dota 2' : 'LoL'}${hasSeriesScore && bo > 1 ? ` • BO${bo} (${m.scoreA}:${m.scoreB})` : ''}</div>
                 </div>
-                ${pred.topPick ? `<span style="font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:8px;background:var(--primary-container);color:var(--primary)">${pred.topPick.label}</span>` : ''}
-            </div>`;
+                ${totalPreds > 0 ? `<span style="font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:8px;background:${totalWins === totalPreds ? 'var(--success-light)' : totalWins > 0 ? 'rgba(251,191,36,0.12)' : 'rgba(239,68,68,0.08)'};color:${totalWins === totalPreds ? 'var(--success)' : totalWins > 0 ? '#d97706' : '#ef4444'}">${totalWins}/${totalPreds} ✅</span>` : ''}
+            </div>
+            ${hasResult ? `<div style="display:grid;grid-template-columns:repeat(${isDota ? 3 : 4},1fr);gap:4px;margin-bottom:8px">
+                <div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
+                    <div style="font-size:0.55rem;color:var(--on-surface-variant)">KILL</div>
+                    <div style="font-size:0.8rem;font-weight:700">${result.kills || '—'}</div>
+                </div>
+                <div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
+                    <div style="font-size:0.55rem;color:var(--on-surface-variant)">${isDota ? 'TOWER' : 'TRỤ'}</div>
+                    <div style="font-size:0.8rem;font-weight:700">${result.towers || '—'}</div>
+                </div>
+                ${!isDota ? `<div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
+                    <div style="font-size:0.55rem;color:var(--on-surface-variant)">RỒNG</div>
+                    <div style="font-size:0.8rem;font-weight:700">${result.dragons || '—'}</div>
+                </div>` : ''}
+                <div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
+                    <div style="font-size:0.55rem;color:var(--on-surface-variant)">TIME</div>
+                    <div style="font-size:0.8rem;font-weight:700">${result.duration || '—'}m</div>
+                </div>
+            </div>` : ''}
+            ${predResults.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px">
+                ${predResults.map(r => `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;background:${r.won ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)'};border-left:3px solid ${r.won ? 'var(--success)' : '#ef4444'}">
+                    <span style="font-size:0.72rem;font-weight:700">${r.won ? '✅' : '❌'}</span>
+                    <span style="font-size:0.7rem;flex:1">${r.label}</span>
+                    <span style="font-size:0.65rem;color:var(--on-surface-variant)">Thực: ${r.actual}</span>
+                </div>`).join('')}
+            </div>` : `<div style="font-size:0.65rem;color:var(--on-surface-variant);text-align:center;padding:6px">Chưa có dữ liệu kết quả</div>`}
+            ${bo > 1 && m.games && m.games.length > 0 ? `<div style="margin-top:8px;border-top:1px solid var(--outline-variant);padding-top:8px">
+                <div style="font-size:0.62rem;font-weight:700;color:var(--on-surface-variant);text-transform:uppercase;margin-bottom:6px">📋 Chi tiết từng game</div>
+                ${m.games.map((g, i) => `<div style="display:flex;align-items:center;gap:8px;padding:4px 6px;margin-bottom:2px;border-radius:6px;background:var(--surface-container)">
+                    <span style="font-size:0.62rem;font-weight:700;color:var(--primary)">G${i + 1}</span>
+                    <span style="font-size:0.65rem;flex:1">${g.winner || '?'}</span>
+                    <span style="font-size:0.6rem;color:var(--on-surface-variant)">${g.kills || '?'}K • ${g.towers || '?'}T${g.dragons != null ? ' • ' + g.dragons + 'D' : ''} • ${g.duration || '?'}m</span>
+                </div>`).join('')}
+            </div>` : ''}
+        </div>`;
         });
         html += '</div>';
         return html;
