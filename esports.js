@@ -95,6 +95,10 @@ const EsportsAnalyzer = (() => {
         'shopify rebellion': { elo: 1510, logo: '💚', region: 'NA', avgK: 29, avgT: 6.3, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
         'all for one': { elo: 1505, logo: '🤝', region: 'CN', avgK: 29, avgT: 6.4, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
         'bb team': { elo: 1500, logo: '🅱️', region: 'CIS', avgK: 28, avgT: 6.3, avgD: 35, sdK: 7, sdT: 1.6, sdD: 6 },
+        'gamerlegion': { elo: 1610, logo: '🦁', region: 'EU', avgK: 29, avgT: 6.8, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
+        'zetta games': { elo: 1500, logo: '⚡', region: 'SA', avgK: 30, avgT: 6.3, avgD: 36, sdK: 7, sdT: 1.7, sdD: 6 },
+        'team antares': { elo: 1490, logo: '🌟', region: 'SA', avgK: 29, avgT: 6.2, avgD: 36, sdK: 7, sdT: 1.7, sdD: 7 },
+        'nemiga': { elo: 1610, logo: '🟩', region: 'CIS', avgK: 29, avgT: 6.5, avgD: 34, sdK: 6, sdT: 1.5, sdD: 5 },
     };
 
     // ===== TOP 30 LOL TEAMS =====
@@ -139,7 +143,9 @@ const EsportsAnalyzer = (() => {
         'dreamleague', 'esl one', 'the international', 'dpc', 'riyadh masters',
         'bali major', 'berlin major', 'pgl', 'betboom dacha', 'fissure',
         'elite league', 'esl pro', 'blast', 'bb dacha', 'european pro league',
-        'dota pit', 'dao', 'igames', 'cda-fdc', 'wcg'
+        'dota pit', 'dao', 'igames', 'cda-fdc', 'wcg',
+        'ultras dota', 'cct dota', 'destiny league', 'dota 2 space', 'trinity league',
+        'epl world series'
     ];
     const TIER1_LOL_LEAGUES = [
         'lck', 'lpl', 'lec', 'lcs', 'lco', 'cblol', 'ljl', 'pcs', 'vcs',
@@ -179,13 +185,29 @@ const EsportsAnalyzer = (() => {
     }
 
     // ===== FETCH REAL DOTA 2 MATCHES =====
+    // OpenDota /proMatches only returns completed matches (~last 100).
+    // If no matches exist for the exact date, we expand to include recent matches
+    // so users always see Dota 2 content.
     async function fetchDotaMatches(dateStr) {
         try {
             const res = await fetch('https://api.opendota.com/api/proMatches');
             if (!res.ok) return [];
             const data = await res.json();
             const { start, end } = dateToUnixRangeGMT7(dateStr);
-            return data.filter(m => m.start_time >= start && m.start_time < end);
+            // First try exact date match
+            const exactDay = data.filter(m => m.start_time >= start && m.start_time < end);
+            if (exactDay.length > 0) return exactDay;
+            // Fallback: expand range to ±1 day (show yesterday + tomorrow matches)
+            const expandedStart = start - 86400;
+            const expandedEnd = end + 86400;
+            const expanded = data.filter(m => m.start_time >= expandedStart && m.start_time < expandedEnd);
+            if (expanded.length > 0) {
+                console.log(`[Esports] No Dota2 matches for ${dateStr}, expanded to ±1 day: ${expanded.length} matches`);
+                return expanded;
+            }
+            // Last resort: return all available from API (covers ~2 days)
+            console.log(`[Esports] No Dota2 near ${dateStr}, showing all ${data.length} recent matches`);
+            return data;
         } catch (e) {
             console.warn('[Esports] OpenDota fetch failed:', e);
             return [];
