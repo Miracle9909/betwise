@@ -380,6 +380,7 @@ const EsportsAnalyzer = (() => {
             scoreA,
             scoreB,
             rawMatchId,
+            rawStartTime: raw.startTime || null,
             winnerA: raw.teamA?.outcome === 'win',
             winnerB: raw.teamB?.outcome === 'win',
         };

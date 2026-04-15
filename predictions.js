@@ -165,6 +165,22 @@
             console.warn('[Predictions] API fetch failed:', e);
         }
 
+        // Filter matches to today only (GMT+7) — exclude cross-midnight matches from tomorrow
+        const todayDateStr = dateStr; // Already in GMT+7
+        matches = matches.filter(m => {
+            // Always keep live matches
+            if (m.status === 'live' || m.status === 'inProgress') return true;
+            // If we have the raw start time, check GMT+7 date
+            if (m.rawStartTime) {
+                const matchDate = new Date(m.rawStartTime);
+                const gmt7 = new Date(matchDate.getTime() + 7 * 60 * 60 * 1000);
+                const matchDateStr = `${gmt7.getUTCFullYear()}-${String(gmt7.getUTCMonth() + 1).padStart(2, '0')}-${String(gmt7.getUTCDate()).padStart(2, '0')}`;
+                return matchDateStr === todayDateStr;
+            }
+            return true; // Keep if no start time info
+        });
+        console.log(`[Predictions] Filtered to ${matches.length} matches for ${todayDateStr}`);
+
         const wr = getWinRate();
         let html = '';
 
@@ -197,31 +213,84 @@
             return;
         }
 
-        // Group by game + status
+        // Group by status
         const liveMatches = matches.filter(m => m.status === 'live' || m.status === 'inProgress');
         const upcomingMatches = matches.filter(m => m.status === 'upcoming' || m.status === 'unstarted' || m.status === 'notStarted' || !m.status);
         const finishedMatches = matches.filter(m => m.status === 'completed' || m.status === 'finished');
 
-        // === LIVE ===
-        if (liveMatches.length > 0) {
-            html += sectionHeader('🔴 LIVE — Đang diễn ra', liveMatches.length, true);
-            liveMatches.forEach(m => { html += renderMatchPred(m); });
+        // Auto-select tab: live > upcoming > finished
+        if (!window._predFilter) {
+            window._predFilter = liveMatches.length > 0 ? 'live' : upcomingMatches.length > 0 ? 'upcoming' : 'finished';
         }
+        const activeFilter = window._predFilter;
 
-        // === UPCOMING ===
-        if (upcomingMatches.length > 0) {
-            html += sectionHeader(`🎯 Sắp thi đấu — ${dateDisplay}`, upcomingMatches.length, false);
-            upcomingMatches.forEach(m => { html += renderMatchPred(m); });
-        }
+        // === FILTER TABS ===
+        const tabs = [
+            { key: 'live', label: '🔴 Live', count: liveMatches.length },
+            { key: 'upcoming', label: '🎯 Sắp tới', count: upcomingMatches.length },
+            { key: 'finished', label: '✅ Kết thúc', count: finishedMatches.length },
+        ];
 
-        // === FINISHED / Results ===
-        if (finishedMatches.length > 0) {
-            html += sectionHeader('✅ Đã kết thúc — Tổng kết', finishedMatches.length, false);
-            html += renderFinishedSummary(finishedMatches);
+        html += `<div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">`;
+        tabs.forEach(tab => {
+            const isActive = activeFilter === tab.key;
+            html += `<button onclick="window._predFilter='${tab.key}';BetWisePredictions.renderPredictions()" style="
+                display:flex;align-items:center;gap:6px;
+                padding:8px 16px;border-radius:24px;
+                border:1px solid ${isActive ? 'var(--primary)' : 'var(--outline)'};
+                background:${isActive ? 'var(--primary)' : 'var(--surface)'};
+                color:${isActive ? 'white' : 'var(--on-surface-variant)'};
+                font-size:0.78rem;font-weight:${isActive ? '700' : '500'};
+                cursor:pointer;white-space:nowrap;transition:all 0.2s;
+                font-family:var(--font-body)">
+                ${tab.label}
+                <span style="
+                    font-size:0.62rem;font-weight:700;
+                    padding:1px 7px;border-radius:10px;
+                    background:${isActive ? 'rgba(255,255,255,0.25)' : 'var(--surface-container)'};
+                    color:${isActive ? 'white' : 'var(--on-surface-variant)'}">${tab.count}</span>
+            </button>`;
+        });
+        html += `</div>`;
+
+        // Date indicator
+        html += `<div style="font-size:0.65rem;color:var(--on-surface-variant);margin-bottom:10px;display:flex;align-items:center;gap:4px">
+            📅 <strong>${dateDisplay}</strong> • ${matches.length} trận hôm nay
+        </div>`;
+
+        // === RENDER SELECTED SECTION ===
+        if (activeFilter === 'live') {
+            if (liveMatches.length > 0) {
+                liveMatches.forEach(m => { html += renderMatchPred(m); });
+            } else {
+                html += `<div style="text-align:center;padding:24px 16px;color:var(--on-surface-variant)">
+                    <div style="font-size:1.5rem;margin-bottom:6px">📡</div>
+                    <div style="font-size:0.82rem">Không có trận nào đang diễn ra</div>
+                </div>`;
+            }
+        } else if (activeFilter === 'upcoming') {
+            if (upcomingMatches.length > 0) {
+                upcomingMatches.forEach(m => { html += renderMatchPred(m); });
+            } else {
+                html += `<div style="text-align:center;padding:24px 16px;color:var(--on-surface-variant)">
+                    <div style="font-size:1.5rem;margin-bottom:6px">🏁</div>
+                    <div style="font-size:0.82rem">Tất cả trận hôm nay đã bắt đầu hoặc kết thúc</div>
+                </div>`;
+            }
+        } else if (activeFilter === 'finished') {
+            if (finishedMatches.length > 0) {
+                html += renderFinishedSummary(finishedMatches);
+            } else {
+                html += `<div style="text-align:center;padding:24px 16px;color:var(--on-surface-variant)">
+                    <div style="font-size:1.5rem;margin-bottom:6px">⏳</div>
+                    <div style="font-size:0.82rem">Chưa có trận nào kết thúc hôm nay</div>
+                </div>`;
+            }
         }
 
         // Summary
-        const allPreds = matches.map(m => {
+        const activeMatches = activeFilter === 'live' ? liveMatches : activeFilter === 'upcoming' ? upcomingMatches : finishedMatches;
+        const allPreds = activeMatches.map(m => {
             const game = m.game || 'lol';
             const pred = predictFromMatch(m, game);
             return pred.preds;
