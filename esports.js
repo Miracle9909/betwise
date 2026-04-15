@@ -356,6 +356,7 @@ const EsportsAnalyzer = (() => {
         const time = raw.startTime ? toGMT7Time(raw.startTime) : '—';
         const isFinished = raw.state === 'completed' || raw.state === 'finished';
         const isLive = raw.state === 'inProgress' || raw.state === 'live';
+        const rawMatchId = raw.id || null; // Keep raw API ID for detail fetching
         const matchId = `lol_${raw.id || index}_${dateStr}`;
         const leagueName = raw.league || 'LoL Esports';
         const { bets, mc } = analyzeBetTypes(teamA, teamB, 'lol', matchId, leagueName);
@@ -365,11 +366,6 @@ const EsportsAnalyzer = (() => {
         const scoreB = raw.teamB?.score ?? null;
         const bestOf = raw.bestOf || 3;
 
-        // v5.5: Do NOT generate fake results from MC simulation
-        // Only use real data for resolving predictions
-        let result = null;
-        // No fake results — wait for real data to resolve
-
         return {
             id: `lol_real_${raw.id || index}`,
             game: 'lol',
@@ -377,14 +373,40 @@ const EsportsAnalyzer = (() => {
             league: raw.league || 'LoL Esports',
             bets, mc,
             status: isFinished ? 'finished' : isLive ? 'live' : 'upcoming',
-            result,
+            result: null, // Populated by fetchLolMatchDetails after mapping
+            games: null,  // Populated by fetchLolMatchDetails for BO3/5
             isReal: true,
             bestOf,
             scoreA,
             scoreB,
+            rawMatchId,
             winnerA: raw.teamA?.outcome === 'win',
             winnerB: raw.teamB?.outcome === 'win',
         };
+    }
+
+    // ===== FETCH LOL MATCH DETAILS (per-game stats) =====
+    async function fetchLolMatchDetails(match) {
+        if (!match.rawMatchId) return;
+        try {
+            const url = `/api/lol-match-detail?matchId=${match.rawMatchId}`;
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.success) return;
+
+            // Populate result (average across games)
+            if (data.result) {
+                match.result = data.result;
+            }
+            // Populate per-game breakdown for BO3/5
+            if (data.games && data.games.length > 0) {
+                match.games = data.games;
+            }
+            console.log(`[Esports] LoL match detail loaded: ${match.teamA.name} vs ${match.teamB.name} — ${data.gameCount} games`);
+        } catch (e) {
+            console.warn(`[Esports] LoL match detail fetch failed for ${match.rawMatchId}:`, e.message);
+        }
     }
 
     // ===== FETCH ALL MATCHES FOR A DATE =====
@@ -421,6 +443,13 @@ const EsportsAnalyzer = (() => {
             lolMatches = filteredLol.map((m, i) => mapLolApiToMatch(m, i, dateStr, rawLol));
         } else {
             lolMatches = generateLolFallback(dateStr);
+        }
+
+        // v7.0: Fetch per-game details for finished LoL matches (parallel, non-blocking)
+        const finishedLol = lolMatches.filter(m => m.status === 'finished' && m.rawMatchId);
+        if (finishedLol.length > 0) {
+            console.log(`[Esports] Fetching details for ${finishedLol.length} finished LoL matches...`);
+            await Promise.allSettled(finishedLol.map(m => fetchLolMatchDetails(m)));
         }
 
         const all = [...dotaMatches, ...lolMatches];

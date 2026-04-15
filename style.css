@@ -1472,6 +1472,14 @@ body {
     flex-shrink: 0;
 }
 
+.team-logo-img {
+    border-radius: 50%;
+    object-fit: contain;
+    background: var(--surface-container);
+    border: 1px solid var(--outline-variant);
+    flex-shrink: 0;
+}
+
 .es-team-name {
     font-size: 0.88rem;
     font-weight: 600;

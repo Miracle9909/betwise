@@ -15,6 +15,14 @@
         lol: { kill: 28.5, tower: 11.5, dragon: 4.5, time: 31 }
     };
 
+    // ===== TEAM LOGO RENDERING =====
+    function teamLogoHtml(team, size = 36) {
+        if (team.imageUrl) {
+            return `<img src="${team.imageUrl}" alt="${team.name}" class="team-logo-img" style="width:${size}px;height:${size}px" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="es-team-logo" style="display:none;width:${size}px;height:${size}px;min-width:${size}px;font-size:${Math.round(size * 0.45)}px">${team.logo || '🎮'}</span>`;
+        }
+        return `<span class="es-team-logo" style="width:${size}px;height:${size}px;min-width:${size}px;font-size:${Math.round(size * 0.45)}px">${team.logo || '🎮'}</span>`;
+    }
+
     // ===== RESULTS STORAGE =====
     const STORAGE_KEY = 'betwise_pred_results_v2';
     const HISTORY_KEY = 'betwise_pred_history_v2';
@@ -297,7 +305,7 @@
 
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
                 <div style="display:flex;align-items:center;gap:8px;flex:1">
-                    <span class="es-team-logo">${tA.logo || '🎮'}</span>
+                    ${teamLogoHtml(tA, 36)}
                     <div>
                         <div style="font-size:0.88rem;font-weight:700;color:var(--on-surface)">${tA.name || '?'}</div>
                     </div>
@@ -307,7 +315,7 @@
                     <div style="font-size:0.6rem;color:var(--primary);font-weight:600">${(winProbA * 100).toFixed(0)}%—${((1 - winProbA) * 100).toFixed(0)}%</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex:1;flex-direction:row-reverse">
-                    <span class="es-team-logo">${tB.logo || '🎮'}</span>
+                    ${teamLogoHtml(tB, 36)}
                     <div style="text-align:right">
                         <div style="font-size:0.88rem;font-weight:700;color:var(--on-surface)">${tB.name || '?'}</div>
                     </div>
@@ -343,7 +351,7 @@
     }
 
     function renderFinishedSummary(matches) {
-        let html = '<div style="display:flex;flex-direction:column;gap:8px">';
+        let html = '<div style="display:flex;flex-direction:column;gap:10px">';
         matches.forEach(m => {
             const game = m.game || 'lol';
             const pred = predictFromMatch(m, game);
@@ -354,6 +362,8 @@
             const bo = m.bestOf || 1;
             const hasSeriesScore = m.scoreA != null && m.scoreB != null;
             const isDota = game === 'dota2';
+            const isWinnerA = m.winnerA || (hasSeriesScore && m.scoreA > m.scoreB);
+            const isWinnerB = m.winnerB || (hasSeriesScore && m.scoreB > m.scoreA);
 
             // Check each prediction against actual result
             let predResults = [];
@@ -377,48 +387,97 @@
             const totalPreds = predResults.length;
             const totalWins = predResults.filter(r => r.won).length;
 
+            // LPL-style card with both team logos
             html += `
-        <div class="glass-card" style="padding:14px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                <span class="es-team-logo" style="width:28px;height:28px;min-width:28px;font-size:0.75rem">${tA.logo || '🎮'}</span>
-                <div style="flex:1;min-width:0">
-                    <div style="font-size:0.78rem;font-weight:600;color:var(--on-surface)">${tA.name || '?'} vs ${tB.name || '?'}</div>
-                    <div style="font-size:0.62rem;color:var(--on-surface-variant)">${m.league || ''} • ${isDota ? 'Dota 2' : 'LoL'}${hasSeriesScore && bo > 1 ? ` • BO${bo} (${m.scoreA}:${m.scoreB})` : ''}</div>
+        <div class="glass-card" style="padding:16px">
+            <!-- League + Status -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:0.65rem;color:var(--on-surface-variant);display:flex;align-items:center;gap:4px">
+                    <span style="font-size:0.55rem;padding:1px 5px;border-radius:4px;background:${isDota ? 'rgba(220,38,38,0.08)' : 'rgba(74,94,229,0.08)'};color:${isDota ? '#dc2626' : 'var(--primary)'};font-weight:700">${isDota ? 'Dota 2' : 'LoL'}</span>
+                    ${m.league || ''}${bo > 1 ? ` • BO${bo}` : ''}
                 </div>
-                ${totalPreds > 0 ? `<span style="font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:8px;background:${totalWins === totalPreds ? 'var(--success-light)' : totalWins > 0 ? 'rgba(251,191,36,0.12)' : 'rgba(239,68,68,0.08)'};color:${totalWins === totalPreds ? 'var(--success)' : totalWins > 0 ? '#d97706' : '#ef4444'}">${totalWins}/${totalPreds} ✅</span>` : ''}
+                ${totalPreds > 0 ? `<span style="font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:8px;background:${totalWins === totalPreds ? 'var(--success-light)' : totalWins > 0 ? 'rgba(251,191,36,0.12)' : 'rgba(239,68,68,0.08)'};color:${totalWins === totalPreds ? 'var(--success)' : totalWins > 0 ? '#d97706' : '#ef4444'}">${totalWins}/${totalPreds} ✅</span>` : ''}
             </div>
-            ${hasResult ? `<div style="display:grid;grid-template-columns:repeat(${isDota ? 3 : 4},1fr);gap:4px;margin-bottom:8px">
+
+            <!-- Team VS Team (LPL Style) -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
+                    ${teamLogoHtml(tA, 40)}
+                    <div style="font-size:0.78rem;font-weight:700;color:${isWinnerA ? 'var(--primary)' : 'var(--on-surface)'}; text-align:center">${tA.name || '?'}</div>
+                </div>
+                <div style="text-align:center;padding:0 12px">
+                    ${hasSeriesScore ? `<div style="font-size:1.3rem;font-weight:800;color:var(--on-surface)">${m.scoreA} <span style="font-size:0.8rem;color:var(--on-surface-variant)">:</span> ${m.scoreB}</div>` : '<div style="font-size:0.78rem;font-weight:700;color:var(--on-surface-variant)">VS</div>'}
+                    <div style="font-size:0.55rem;color:var(--on-surface-variant)">KẾT THÚC</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
+                    ${teamLogoHtml(tB, 40)}
+                    <div style="font-size:0.78rem;font-weight:700;color:${isWinnerB ? 'var(--primary)' : 'var(--on-surface)'}; text-align:center">${tB.name || '?'}</div>
+                </div>
+            </div>
+
+            ${hasResult ? `<!-- Average Stats -->
+            <div style="display:grid;grid-template-columns:repeat(${isDota ? 3 : 4},1fr);gap:4px;margin-bottom:10px">
                 <div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
                     <div style="font-size:0.55rem;color:var(--on-surface-variant)">KILL</div>
-                    <div style="font-size:0.8rem;font-weight:700">${result.kills || '—'}</div>
+                    <div style="font-size:0.82rem;font-weight:700">${result.kills ?? '—'}</div>
                 </div>
                 <div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
                     <div style="font-size:0.55rem;color:var(--on-surface-variant)">${isDota ? 'TOWER' : 'TRỤ'}</div>
-                    <div style="font-size:0.8rem;font-weight:700">${result.towers || '—'}</div>
+                    <div style="font-size:0.82rem;font-weight:700">${result.towers ?? '—'}</div>
                 </div>
                 ${!isDota ? `<div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
                     <div style="font-size:0.55rem;color:var(--on-surface-variant)">RỒNG</div>
-                    <div style="font-size:0.8rem;font-weight:700">${result.dragons || '—'}</div>
+                    <div style="font-size:0.82rem;font-weight:700">${result.dragons ?? '—'}</div>
                 </div>` : ''}
                 <div style="text-align:center;padding:5px 3px;background:var(--surface-container);border-radius:6px">
                     <div style="font-size:0.55rem;color:var(--on-surface-variant)">TIME</div>
-                    <div style="font-size:0.8rem;font-weight:700">${result.duration || '—'}m</div>
+                    <div style="font-size:0.82rem;font-weight:700">${result.duration ?? '—'}m</div>
                 </div>
             </div>` : ''}
-            ${predResults.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px">
+
+            ${predResults.length > 0 ? `<!-- Prediction Results -->
+            <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px">
                 ${predResults.map(r => `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;background:${r.won ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)'};border-left:3px solid ${r.won ? 'var(--success)' : '#ef4444'}">
                     <span style="font-size:0.72rem;font-weight:700">${r.won ? '✅' : '❌'}</span>
                     <span style="font-size:0.7rem;flex:1">${r.label}</span>
                     <span style="font-size:0.65rem;color:var(--on-surface-variant)">Thực: ${r.actual}</span>
                 </div>`).join('')}
-            </div>` : `<div style="font-size:0.65rem;color:var(--on-surface-variant);text-align:center;padding:6px">Chưa có dữ liệu kết quả</div>`}
-            ${bo > 1 && m.games && m.games.length > 0 ? `<div style="margin-top:8px;border-top:1px solid var(--outline-variant);padding-top:8px">
-                <div style="font-size:0.62rem;font-weight:700;color:var(--on-surface-variant);text-transform:uppercase;margin-bottom:6px">📋 Chi tiết từng game</div>
-                ${m.games.map((g, i) => `<div style="display:flex;align-items:center;gap:8px;padding:4px 6px;margin-bottom:2px;border-radius:6px;background:var(--surface-container)">
-                    <span style="font-size:0.62rem;font-weight:700;color:var(--primary)">G${i + 1}</span>
-                    <span style="font-size:0.65rem;flex:1">${g.winner || '?'}</span>
-                    <span style="font-size:0.6rem;color:var(--on-surface-variant)">${g.kills || '?'}K • ${g.towers || '?'}T${g.dragons != null ? ' • ' + g.dragons + 'D' : ''} • ${g.duration || '?'}m</span>
-                </div>`).join('')}
+            </div>` : (!hasResult ? `<div style="font-size:0.65rem;color:var(--on-surface-variant);text-align:center;padding:6px;background:var(--surface-container);border-radius:6px">
+                ⏳ Đang cập nhật kết quả chi tiết...
+            </div>` : '')}
+
+            ${bo > 1 && m.games && m.games.length > 0 ? `<!-- BO3/5 Per-Game Breakdown (LPL Style) -->
+            <div style="margin-top:8px;border-top:1px solid var(--outline-variant);padding-top:10px">
+                <div style="font-size:0.62rem;font-weight:700;color:var(--on-surface-variant);text-transform:uppercase;margin-bottom:8px;letter-spacing:0.05em">🎮 CHI TIẾT TỪNG GAME (${m.games.length} ván)</div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                ${m.games.map((g, i) => {
+                const isWinA = g.winner && tA.name && g.winner.toLowerCase().includes(tA.name.toLowerCase().substring(0, 4));
+                return `<div style="padding:8px 10px;border-radius:8px;background:var(--surface-container);border-left:3px solid ${isWinA ? 'var(--primary)' : 'var(--error)'}">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                            <span style="font-size:0.68rem;font-weight:700;color:var(--primary)">Game ${g.gameNumber || (i + 1)}</span>
+                            <span style="font-size:0.62rem;font-weight:600;color:${isWinA ? 'var(--primary)' : 'var(--error)'}">${g.winner || '?'} thắng</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(${isDota ? 3 : 4},1fr);gap:4px">
+                            <div style="text-align:center">
+                                <div style="font-size:0.5rem;color:var(--on-surface-variant)">KILL</div>
+                                <div style="font-size:0.72rem;font-weight:700">${g.kills ?? '—'}</div>
+                            </div>
+                            <div style="text-align:center">
+                                <div style="font-size:0.5rem;color:var(--on-surface-variant)">${isDota ? 'TOWER' : 'TRỤ'}</div>
+                                <div style="font-size:0.72rem;font-weight:700">${g.towers ?? '—'}</div>
+                            </div>
+                            ${!isDota ? `<div style="text-align:center">
+                                <div style="font-size:0.5rem;color:var(--on-surface-variant)">RỒNG</div>
+                                <div style="font-size:0.72rem;font-weight:700">${g.dragons ?? '—'}</div>
+                            </div>` : ''}
+                            <div style="text-align:center">
+                                <div style="font-size:0.5rem;color:var(--on-surface-variant)">TIME</div>
+                                <div style="font-size:0.72rem;font-weight:700">${g.duration ?? '—'}m</div>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('')}
+                </div>
             </div>` : ''}
         </div>`;
         });
