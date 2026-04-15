@@ -19,7 +19,12 @@ const EsportsAnalyzer = (() => {
     const MIN_CONFIDENCE = 0.68; // v7.2: raised from 0.65 — backtest showed low-conf (52.3%) barely breaks even
     const MIN_EDGE = 0.05;        // v7.2: slight adjustment for better edge filteringthreshold
     const MONTE_CARLO_N = 2000;   // v6.1: increased from 500 for statistical stability
-    const TZ_OFFSET_MS = 7 * 3600 * 1000; // GMT+7
+    const TZ_OFFSET_MS = 7 * 3600 * 1000;
+
+    // ===== API BASE URL =====
+    // On Vercel, use relative paths. On GitHub Pages, proxy through Vercel domain.
+    const IS_VERCEL = location.hostname.includes('vercel.app');
+    const API_BASE = IS_VERCEL ? '' : 'https://betwise-ruddy.vercel.app'; // GMT+7
     const MAX_DAILY_BETS = 999;   // v7: unlimited daily bets
     const MAX_CONCURRENT_BETS = 10; // v7: up to 10 at once
     const MAX_CONSECUTIVE_LOSS = 5; // v7: relaxed stop-loss
@@ -133,6 +138,17 @@ const EsportsAnalyzer = (() => {
         'sk gaming': { elo: 1460, logo: '🟦', region: 'EU', avgK: 12, avgT: 5.3, avgD: 32, sdK: 5, sdT: 1.5, sdD: 5, avgDr: 2.1, sdDr: 0.9 },
         'rogue': { elo: 1455, logo: '🔵', region: 'EU', avgK: 13, avgT: 5.4, avgD: 31, sdK: 4, sdT: 1.5, sdD: 4, avgDr: 2.2, sdDr: 0.8 },
         'team heretics': { elo: 1450, logo: '🏴', region: 'EU', avgK: 13, avgT: 5.3, avgD: 31, sdK: 5, sdT: 1.5, sdD: 5, avgDr: 2.1, sdDr: 0.9 },
+        'dignitas': { elo: 1440, logo: '🔑', region: 'NA', avgK: 12, avgT: 5.2, avgD: 33, sdK: 4, sdT: 1.5, sdD: 5, avgDr: 2.0, sdDr: 0.9 },
+        'sentinels': { elo: 1435, logo: '❤️', region: 'NA', avgK: 12, avgT: 5.3, avgD: 33, sdK: 4, sdT: 1.5, sdD: 5, avgDr: 2.0, sdDr: 0.9 },
+        'disguised': { elo: 1420, logo: '🎭', region: 'NA', avgK: 13, avgT: 5.2, avgD: 32, sdK: 5, sdT: 1.6, sdD: 5, avgDr: 2.1, sdDr: 0.9 },
+        'lyon gaming': { elo: 1430, logo: '🦁', region: 'LATAM', avgK: 13, avgT: 5.3, avgD: 32, sdK: 5, sdT: 1.5, sdD: 5, avgDr: 2.1, sdDr: 0.9 },
+        'team liquid': { elo: 1550, logo: '💧', region: 'NA', avgK: 12, avgT: 5.5, avgD: 32, sdK: 3, sdT: 1.4, sdD: 4, avgDr: 2.2, sdDr: 0.8 },
+        '100 thieves': { elo: 1440, logo: '💯', region: 'NA', avgK: 12, avgT: 5.3, avgD: 33, sdK: 4, sdT: 1.5, sdD: 5, avgDr: 2.0, sdDr: 0.9 },
+        'evil geniuses': { elo: 1430, logo: '👾', region: 'NA', avgK: 12, avgT: 5.2, avgD: 33, sdK: 5, sdT: 1.5, sdD: 5, avgDr: 2.0, sdDr: 0.9 },
+        'karmine corp': { elo: 1450, logo: '💙', region: 'EU', avgK: 13, avgT: 5.4, avgD: 31, sdK: 4, sdT: 1.5, sdD: 5, avgDr: 2.2, sdDr: 0.8 },
+        'giantx': { elo: 1440, logo: '🦖', region: 'EU', avgK: 13, avgT: 5.3, avgD: 31, sdK: 5, sdT: 1.5, sdD: 5, avgDr: 2.1, sdDr: 0.9 },
+        'team bds': { elo: 1445, logo: '🐝', region: 'EU', avgK: 12, avgT: 5.3, avgD: 32, sdK: 4, sdT: 1.5, sdD: 5, avgDr: 2.1, sdDr: 0.8 },
+        'nongshim redforce': { elo: 1475, logo: '🌶️', region: 'KR', avgK: 12, avgT: 5.4, avgD: 32, sdK: 4, sdT: 1.4, sdD: 4, avgDr: 2.1, sdDr: 0.8 },
     };
 
     // Combined for lookups
@@ -151,7 +167,7 @@ const EsportsAnalyzer = (() => {
         'lck', 'lpl', 'lec', 'lcs', 'lco', 'cblol', 'ljl', 'pcs', 'vcs',
         'worlds', 'msi', 'all-star', 'lla', 'lfl', 'prime league',
         'superliga', 'tcl', 'lcl', 'arabian', 'pacific', 'challengers',
-        'emea', 'americas', 'first stand'
+        'emea', 'americas', 'first stand', 'academy', 'proving grounds'
     ];
 
     function isTopTeam(name) {
@@ -357,7 +373,7 @@ const EsportsAnalyzer = (() => {
         try {
             const start = dateStr + 'T00:00:00+07:00';
             const end = dateStr + 'T23:59:59+07:00';
-            const url = `/api/lol-matches?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+            const url = `${API_BASE}/api/lol-matches?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
             const res = await fetch(url);
             if (!res.ok) return [];
             const data = await res.json();
@@ -412,7 +428,7 @@ const EsportsAnalyzer = (() => {
     async function fetchLolMatchDetails(match) {
         if (!match.rawMatchId) return;
         try {
-            const url = `/api/lol-match-detail?matchId=${match.rawMatchId}`;
+            const url = `${API_BASE}/api/lol-match-detail?matchId=${match.rawMatchId}`;
             const res = await fetch(url);
             if (!res.ok) return;
             const data = await res.json();
