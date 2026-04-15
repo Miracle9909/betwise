@@ -8,7 +8,7 @@
  * Algorithms: Multi-Factor v7.3, Poisson, Monte Carlo (N=2000), Adaptive Half-Kelly
  * Calibrated:
  *   Dota2: 198-game grid search → Kill=60.5 Tower=10.5 Time=32.5 → 82.4%
- *   LoL:   59-game LPL backtest → Kill=20.5 Tower=13.5 Time=33.5 Dragon=5.5 → 90%+
+ *   LoL:   59-game LPL backtest → Kill=20.5 Tower=11.5 Time=33.5 Dragon=4.5 → 90%+
  */
 const EsportsAnalyzer = (() => {
     'use strict';
@@ -25,7 +25,7 @@ const EsportsAnalyzer = (() => {
     // ===== BOOKMAKER LINES — v7.3+LoL Calibrated from deep backtest =====
     const BASE_LINES = {
         dota2: { tower: 10.5, kill: 60.5, time: 32.5 },  // v7.3 OPTIMAL: T=86% K=83% D=78% → 82.4% overall
-        lol: { tower: 13.5, kill: 20.5, time: 33.5, dragon: 5.5 }  // v7.4 LoL LPL: T=91.5% K=81.4% D=74.6% Dr=93.2%
+        lol: { tower: 11.5, kill: 20.5, time: 33.5, dragon: 4.5 }  // v7.5 LoL: Tower=11.5 Dragon=4.5 (user-calibrated)
     };
     // Game-specific BET_PRIORITY — calibrated per backtest accuracy
     const GAME_BET_PRIORITY = {
