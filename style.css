@@ -2318,3 +2318,341 @@ body {
         font-size: 1.8rem;
     }
 }
+
+/* ===== PRO SVG STAT ICONS (LPL-inspired) ===== */
+.es-stat-svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.es-stat-svg.kills {
+    color: #f59e0b;
+}
+
+.es-stat-svg.tower {
+    color: #22c55e;
+}
+
+.es-stat-svg.dragon {
+    color: #ef4444;
+}
+
+.es-stat-svg.time {
+    color: #60a5fa;
+}
+
+.es-stat-svg.baron {
+    color: #a855f7;
+}
+
+.es-stat-svg.gold {
+    color: #fbbf24;
+}
+
+.es-pro-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.es-pro-stat strong {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--on-surface);
+}
+
+.es-pro-stat .es-stat-label {
+    font-size: 9px;
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+}
+
+.es-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Inline icons in match card score */
+.es-pro-stats-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+}
+
+.es-pro-stats-inline .es-pro-stat strong {
+    font-size: 11px;
+}
+
+.es-pro-stats-inline .es-stat-svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* ===== CHAMPION PORTRAITS ===== */
+.es-champ-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.es-champ-row.left {
+    justify-content: flex-end;
+}
+
+.es-champ-row.right {
+    justify-content: flex-start;
+}
+
+.es-champ-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--outline-variant);
+    object-fit: cover;
+    background: var(--surface);
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.es-champ-img:hover {
+    transform: scale(1.15);
+    border-color: var(--primary);
+    z-index: 2;
+}
+
+.es-champ-img-sm {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid var(--outline-variant);
+    object-fit: cover;
+    background: var(--surface);
+    flex-shrink: 0;
+}
+
+/* ===== CHAMPION SECTION (Game Detail) ===== */
+.es-champs-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-sm);
+}
+
+.es-champs-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.es-champs-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.es-champs-vs {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--on-surface-variant);
+    padding: 0 4px;
+}
+
+/* ===== PRO GAME DETAIL CARD ===== */
+.es-gd-pro .es-gd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.es-gd-map {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--on-surface);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.es-gd-winner {
+    font-size: 11px;
+    font-weight: 600;
+    color: #fbbf24;
+}
+
+/* Stats split: TeamA | Icons | TeamB */
+.es-gd-stats-pro {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+}
+
+.es-gd-side {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 30px;
+}
+
+.es-gd-left {
+    align-items: flex-end;
+}
+
+.es-gd-right {
+    align-items: flex-start;
+}
+
+.es-gd-val {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--on-surface);
+    font-variant-numeric: tabular-nums;
+}
+
+.es-gd-icons {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+.es-gd-icons .es-pro-stat {
+    flex-direction: column;
+    gap: 1px;
+}
+
+.es-gd-icons .es-stat-svg {
+    width: 20px;
+    height: 20px;
+}
+
+.es-gd-icons .es-pro-stat strong {
+    font-size: 10px;
+    color: var(--on-surface-variant);
+}
+
+/* Duration bar */
+.es-gd-duration {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+}
+
+.es-gd-duration .es-stat-svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ===== PLAYER TABLE ===== */
+.es-players-section {
+    margin-top: 10px;
+    border-top: 1px solid var(--outline-variant);
+    padding-top: 8px;
+}
+
+.es-players-header {
+    display: grid;
+    grid-template-columns: 30px 1fr 70px 40px;
+    gap: 4px;
+    padding: 4px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--outline-variant);
+}
+
+.es-players-team {
+    margin-top: 4px;
+}
+
+.es-players-team-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--on-surface);
+    padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-sm);
+    margin-bottom: 2px;
+}
+
+.es-player-row {
+    display: grid;
+    grid-template-columns: 30px 1fr 70px 40px;
+    gap: 4px;
+    padding: 3px 6px;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.es-player-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.es-player-name {
+    font-size: 11px;
+    color: var(--on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.es-player-kda {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fbbf24;
+    font-style: italic;
+    text-align: center;
+}
+
+.es-player-cs {
+    font-size: 11px;
+    color: var(--on-surface-variant);
+    text-align: center;
+}
+
+/* ===== MOBILE RESPONSIVE for Pro Elements ===== */
+@media (max-width: 500px) {
+    .es-champ-img {
+        width: 26px;
+        height: 26px;
+    }
+
+    .es-champ-img-sm {
+        width: 20px;
+        height: 20px;
+    }
+
+    .es-champs-section {
+        padding: 6px;
+        gap: 4px;
+    }
+
+    .es-gd-val {
+        font-size: 14px;
+    }
+
+    .es-players-header,
+    .es-player-row {
+        grid-template-columns: 24px 1fr 60px 36px;
+        font-size: 10px;
+    }
+
+    .es-player-kda {
+        font-size: 11px;
+    }
+}

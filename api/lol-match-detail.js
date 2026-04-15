@@ -122,6 +122,34 @@ function parseEventMatch(match) {
             : tB.outcome === 'win' ? tB.name || tB.code || 'Team B'
                 : '—';
 
+        // Extract champion picks per team
+        const championsA = (tA.players || []).map(p => p.championId || p.champion?.id || p.champion || null).filter(Boolean);
+        const championsB = (tB.players || []).map(p => p.championId || p.champion?.id || p.champion || null).filter(Boolean);
+        // Extract bans if available
+        const bansA = (tA.bans || []).map(b => b.championId || b.champion?.id || b);
+        const bansB = (tB.bans || []).map(b => b.championId || b.champion?.id || b);
+        // Extract per-player details
+        const playersA = (tA.players || []).map(p => ({
+            summonerName: p.summonerName || p.name || '',
+            role: p.role || '',
+            championId: p.championId || p.champion?.id || p.champion || null,
+            kills: p.kills ?? 0,
+            deaths: p.deaths ?? 0,
+            assists: p.assists ?? 0,
+            cs: p.creepScore ?? p.cs ?? 0,
+            gold: p.totalGold ?? p.gold ?? 0,
+        }));
+        const playersB = (tB.players || []).map(p => ({
+            summonerName: p.summonerName || p.name || '',
+            role: p.role || '',
+            championId: p.championId || p.champion?.id || p.champion || null,
+            kills: p.kills ?? 0,
+            deaths: p.deaths ?? 0,
+            assists: p.assists ?? 0,
+            cs: p.creepScore ?? p.cs ?? 0,
+            gold: p.totalGold ?? p.gold ?? 0,
+        }));
+
         games.push({
             gameNumber: g.number || (games.length + 1),
             winner,
@@ -133,6 +161,12 @@ function parseEventMatch(match) {
             dragonsA, dragonsB,
             duration: durationMin,
             state: g.state,
+            championsA,
+            championsB,
+            bansA,
+            bansB,
+            playersA,
+            playersB,
         });
     }
 

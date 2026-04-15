@@ -1,5 +1,5 @@
 /**
- * BetWise Esports UI Controller v4.0 — Real Data + Date Navigation
+ * BetWise Esports UI Controller v5.0 — Pro Icons + Champion Display
  */
 (function () {
     'use strict';
@@ -9,9 +9,44 @@
     let isAutoRunning = false;
     let autoRunAbort = false;
     let dataSource = 'loading';
-    let selectedMatches = new Set(); // User-selected matches for betting
-    let gameFilter = 'all'; // 'all' | 'dota2' | 'lol'
+    let selectedMatches = new Set();
+    let gameFilter = 'all';
     let autoSettleTimer = null;
+
+    // ===== DATA DRAGON CDN for Champion Portraits =====
+    const DD_VERSION = '14.8.1';
+    const DD_CDN = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img/champion`;
+
+    // Champion ID → name mapping (LoL Esports commonly uses lowercase names)
+    function champImgUrl(champId) {
+        if (!champId) return '';
+        // Handle both numeric IDs and string names from API
+        let name = typeof champId === 'string' ? champId : '';
+        // Capitalize first letter for Data Dragon URL format
+        if (name) name = name.charAt(0).toUpperCase() + name.slice(1);
+        return `${DD_CDN}/${name || champId}.png`;
+    }
+
+    // ===== PRO SVG ICONS (LPL-inspired) =====
+    const ICON = {
+        kills: `<svg class="es-stat-svg kills" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 3.5L12 2L9.5 3.5L12 12L14.5 3.5Z"/><path d="M12 12L5 21H9L12 16L15 21H19L12 12Z"/></svg>`,
+        tower: `<svg class="es-stat-svg tower" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V10L12 3L20 10V21"/><path d="M9 21V14H15V21"/><path d="M12 7V10"/><circle cx="12" cy="7" r="1.5"/></svg>`,
+        dragon: `<svg class="es-stat-svg dragon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3C8 5 4 8 3 13C5 11 7 10 9 10C7 13 6 16 7 20C9 17 11 15 13 14C13 16 13 18 15 21C16 18 17 15 17 12C19 13 21 14 22 16C21 10 17 5 12 3Z"/></svg>`,
+        time: `<svg class="es-stat-svg time" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7V12L15 15"/></svg>`,
+        baron: `<svg class="es-stat-svg baron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L8 6L4 5L6 10L3 14L7 15L8 20L12 17L16 20L17 15L21 14L18 10L20 5L16 6L12 2Z"/><circle cx="10" cy="10" r="1"/><circle cx="14" cy="10" r="1"/></svg>`,
+        gold: `<svg class="es-stat-svg gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8V16M9 11H15"/></svg>`,
+    };
+
+    function statIcon(type, value, label) {
+        return `<div class="es-pro-stat"><span class="es-icon-wrap">${ICON[type]}</span><strong>${value}</strong>${label ? `<span class="es-stat-label">${label}</span>` : ''}</div>`;
+    }
+
+    function champRow(champions, side) {
+        if (!champions || champions.length === 0) return '';
+        return `<div class="es-champ-row ${side}">${champions.map(c =>
+            `<img class="es-champ-img" src="${champImgUrl(c)}" alt="${c}" onerror="this.style.display='none'" loading="lazy">`
+        ).join('')}</div>`;
+    }
 
     // ===== INIT =====
     async function initEsports() {
@@ -314,7 +349,7 @@
                 ? `<div class="es-series-score"><span class="es-ss ${aWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreA}</span><span class="es-ss-sep">:</span><span class="es-ss ${bWon ? 'es-ss-win' : ''} ${isLive ? 'es-ss-live' : ''}">${match.scoreB}</span></div>`
                 : `<div class="es-vs">${isLive ? '🔴' : isFinished ? '✅' : 'VS'}</div>`
             }
-                            ${isFinished && match.result ? `<div class="es-score-final">${match.result.kills}K │ ${match.result.towers}T │ ${match.result.duration}p${match.result.dragons != null ? ' │ ' + match.result.dragons + 'D' : ''}</div>` : ''}
+                            ${isFinished && match.result ? `<div class="es-score-final es-pro-stats-inline">${statIcon('kills', match.result.kills)}${statIcon('tower', match.result.towers)}${statIcon('time', match.result.duration + 'p')}${match.result.dragons != null ? statIcon('dragon', match.result.dragons) : ''}</div>` : ''}
                             ${isLive && !hasSeriesScore ? '<div class="es-live-dot">LIVE</div>' : ''}
                         </div>
                         <div class="es-team ${bWon ? 'es-team-winner' : ''}">
@@ -755,36 +790,95 @@
         document.getElementById('esMatchModal').classList.remove('hidden');
     };
 
-    // Game-by-game tab switching + per-game detail
+    // Game-by-game tab switching + per-game detail with champion picks
     function renderGameDetail(match, gameIndex) {
         const g = match.games?.[gameIndex];
         const gNum = gameIndex + 1;
+        const isLol = match.game === 'lol';
         if (g) {
-            return `<div class="es-gd-card">
-                <div class="es-gd-header">MAP ${gNum} ${g.winner ? (g.winner === 'A' ? `— ${match.teamA.name} thắng` : `— ${match.teamB.name} thắng`) : ''}</div>
-                <div class="es-gd-stats">
-                    ${g.kills != null ? `<div class="es-gd-stat"><span>Mạng</span><strong>${g.kills}</strong></div>` : ''}
-                    ${g.towers != null ? `<div class="es-gd-stat"><span>Trụ</span><strong>${g.towers}</strong></div>` : ''}
-                    ${g.duration != null ? `<div class="es-gd-stat"><span>Thời gian</span><strong>${g.duration}p</strong></div>` : ''}
-                    ${g.dragons != null ? `<div class="es-gd-stat"><span>Rồng</span><strong>${g.dragons}</strong></div>` : ''}
+            const hasChamps = (g.championsA?.length > 0 || g.championsB?.length > 0);
+            const hasPlayers = (g.playersA?.length > 0 || g.playersB?.length > 0);
+            const winnerName = g.winner === 'A' ? match.teamA.name : g.winner === 'B' ? match.teamB.name : g.winner || '';
+            return `<div class="es-gd-card es-gd-pro">
+                <div class="es-gd-header">
+                    <span class="es-gd-map">GAME ${gNum}</span>
+                    ${winnerName ? `<span class="es-gd-winner">🏆 ${winnerName}</span>` : ''}
                 </div>
+                ${hasChamps ? `<div class="es-champs-section">
+                    <div class="es-champs-team">
+                        <span class="es-champs-label">${match.teamA.name}</span>
+                        ${champRow(g.championsA, 'left')}
+                    </div>
+                    <span class="es-champs-vs">VS</span>
+                    <div class="es-champs-team">
+                        <span class="es-champs-label">${match.teamB.name}</span>
+                        ${champRow(g.championsB, 'right')}
+                    </div>
+                </div>` : ''}
+                <div class="es-gd-stats-pro">
+                    <div class="es-gd-side es-gd-left">
+                        ${g.killsA != null ? `<span class="es-gd-val">${g.killsA}</span>` : ''}
+                        ${g.towersA != null ? `<span class="es-gd-val">${g.towersA}</span>` : ''}
+                        ${g.dragonsA != null ? `<span class="es-gd-val">${g.dragonsA}</span>` : ''}
+                    </div>
+                    <div class="es-gd-icons">
+                        ${g.kills != null ? statIcon('kills', g.kills) : ''}
+                        ${g.towers != null ? statIcon('tower', g.towers) : ''}
+                        ${g.dragons != null ? statIcon('dragon', g.dragons) : ''}
+                    </div>
+                    <div class="es-gd-side es-gd-right">
+                        ${g.killsB != null ? `<span class="es-gd-val">${g.killsB}</span>` : ''}
+                        ${g.towersB != null ? `<span class="es-gd-val">${g.towersB}</span>` : ''}
+                        ${g.dragonsB != null ? `<span class="es-gd-val">${g.dragonsB}</span>` : ''}
+                    </div>
+                </div>
+                ${g.duration != null ? `<div class="es-gd-duration">${statIcon('time', g.duration + 'p', 'Thời gian')}</div>` : ''}
+                ${hasPlayers ? renderPlayerTable(g, match) : ''}
             </div>`;
         }
         // Simulated game detail
         const seed = EsportsAnalyzer.hashCode ? EsportsAnalyzer.hashCode(match.id + '_g' + gNum) : (gNum * 17 + 31);
         const rng = () => { const x = Math.sin(seed + gameIndex * 37) * 10000; return x - Math.floor(x); };
-        const isLol = match.game === 'lol';
         const kills = isLol ? (18 + Math.floor(rng() * 15)) : (35 + Math.floor(rng() * 20));
         const towers = isLol ? (8 + Math.floor(rng() * 6)) : (8 + Math.floor(rng() * 8));
         const dur = isLol ? (26 + Math.floor(rng() * 12)) : (28 + Math.floor(rng() * 15));
         const winner = gameIndex < (match.scoreA || 0) ? match.teamA.name : match.teamB.name;
-        return `<div class="es-gd-card">
-            <div class="es-gd-header">MAP ${gNum} — ${winner} thắng</div>
-            <div class="es-gd-stats">
-                <div class="es-gd-stat"><span>Mạng</span><strong>${kills}</strong></div>
-                <div class="es-gd-stat"><span>Trụ</span><strong>${towers}</strong></div>
-                <div class="es-gd-stat"><span>Thời gian</span><strong>${dur}p</strong></div>
-                ${isLol ? `<div class="es-gd-stat"><span>Rồng</span><strong>${2 + Math.floor(rng() * 3)}</strong></div>` : ''}
+        return `<div class="es-gd-card es-gd-pro">
+            <div class="es-gd-header"><span class="es-gd-map">GAME ${gNum}</span><span class="es-gd-winner">🏆 ${winner}</span></div>
+            <div class="es-gd-stats-pro">
+                <div class="es-gd-icons">
+                    ${statIcon('kills', kills)}
+                    ${statIcon('tower', towers)}
+                    ${statIcon('time', dur + 'p')}
+                    ${isLol ? statIcon('dragon', 2 + Math.floor(rng() * 3)) : ''}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Render player stats table for a game
+    function renderPlayerTable(g, match) {
+        if (!g.playersA?.length && !g.playersB?.length) return '';
+        const renderRow = (p, side) => {
+            const kda = `${p.kills}/${p.deaths}/${p.assists}`;
+            return `<div class="es-player-row ${side}">
+                <img class="es-champ-img-sm" src="${champImgUrl(p.championId)}" alt="" onerror="this.style.display='none'" loading="lazy">
+                <span class="es-player-name">${p.summonerName || '—'}</span>
+                <span class="es-player-kda">${kda}</span>
+                <span class="es-player-cs">${p.cs || '—'}</span>
+            </div>`;
+        };
+        return `<div class="es-players-section">
+            <div class="es-players-header">
+                <span>Tướng</span><span>Tên</span><span>KDA</span><span>CS</span>
+            </div>
+            <div class="es-players-team">
+                <div class="es-players-team-label">${match.teamA.logo} ${match.teamA.name}</div>
+                ${(g.playersA || []).map(p => renderRow(p, 'team-a')).join('')}
+            </div>
+            <div class="es-players-team">
+                <div class="es-players-team-label">${match.teamB.logo} ${match.teamB.name}</div>
+                ${(g.playersB || []).map(p => renderRow(p, 'team-b')).join('')}
             </div>
         </div>`;
     }
