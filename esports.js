@@ -29,9 +29,9 @@ const EsportsAnalyzer = (() => {
     const MAX_CONCURRENT_BETS = 10; // v7: up to 10 at once
     const MAX_CONSECUTIVE_LOSS = 5; // v7: relaxed stop-loss
 
-    // ===== BOOKMAKER LINES — v8.0 Realistic Bookmaker Lines =====
+    // ===== BOOKMAKER LINES — v9.0 Recalibrated from Apr 15 real data (83 games) =====
     const BASE_LINES = {
-        dota2: { tower: 10.5, kill: 60.5, time: 32.5 },  // v7.3 OPTIMAL: T=86% K=83% D=78% → 82.4% overall
+        dota2: { tower: 12.5, kill: 57.5, time: 33 },  // v9.0: Recalibrated — Tower 10.5→12.5 (avg=13.1), Kill 60.5→57.5 (avg=58.2), Time ~ok
         lol: { tower: 11.5, kill: 28.5, time: 32, dragon: 4.5 }  // v8.0: Kill+Time calibrated by league, Tower+Dragon user-calibrated
     };
     // League-specific kill lines for LoL — bookmakers adjust by league aggression
@@ -60,10 +60,30 @@ const EsportsAnalyzer = (() => {
         'cblol': 31,      // BR: aggressive
         'default': 32,    // Default
     };
-    // Game-specific BET_PRIORITY — calibrated per backtest accuracy
+    // Game-specific BET_PRIORITY — v9.0 recalibrated from Apr 15 analysis
     const GAME_BET_PRIORITY = {
-        dota2: { 'tower_ou': 1.15, 'time_ou': 1.08, 'kill_ou': 0.85, 'dragon_ou': 1.05 }, // Dota2 towers best
-        lol: { 'dragon_ou': 1.20, 'tower_ou': 1.15, 'kill_ou': 1.10, 'time_ou': 1.00 }   // LoL adjusted for realistic lines
+        dota2: { 'tower_ou': 1.05, 'time_ou': 1.10, 'kill_ou': 1.00, 'dragon_ou': 1.05 }, // v9.0: Tower priority reduced (line now realistic), Time/Kill balanced
+        lol: { 'dragon_ou': 1.20, 'tower_ou': 1.15, 'kill_ou': 1.10, 'time_ou': 1.00 }   // LoL unchanged
+    };
+    // League-specific Dota 2 kill lines — v9.0 from per-league analysis
+    const DOTA_KILL_LINES = {
+        'ultras': 75.5,           // Ultras: very aggressive (avg 76.7)
+        'european pro league': 58.5, // EPL: avg 60.1
+        'destiny': 55.5,          // Destiny League: avg 57.0
+        'trinity': 40.5,          // Trinity: low-kill games (avg 39.2)
+        'dreamleague': 48.5,      // DreamLeague: below average (avg 48.8)
+        'dota 2 space': 50.5,     // Space League: avg 51.6
+        'cct': 50.5,              // CCT: avg 51.0
+        'default': 57.5,          // Default from overall avg
+    };
+    // League-specific Dota 2 time lines
+    const DOTA_TIME_LINES = {
+        'dreamleague': 40,        // DreamLeague: long games (avg 42.6m)
+        'european pro league': 42, // EPL: long games (avg 44.1m)
+        'ultras': 36,             // Ultras: avg 37.2m
+        'trinity': 27.5,          // Trinity: short games (avg 27.2m)
+        'dota 2 space': 28.5,     // Space: short games (avg 28.6m)
+        'default': 33,            // Default
     };
     // Dynamic lines computed from real data
     let dynamicLines = null;
@@ -322,9 +342,9 @@ const EsportsAnalyzer = (() => {
 
     function getLines(game, league) {
         let lines = (dynamicLines && dynamicLines[game]) ? { ...dynamicLines[game] } : { ...BASE_LINES[game] };
+        const leagueLower = (league || '').toLowerCase();
         // League-specific kill + time lines for LoL
-        if (game === 'lol' && league) {
-            const leagueLower = league.toLowerCase();
+        if (game === 'lol' && leagueLower) {
             for (const [key, killLine] of Object.entries(LOL_KILL_LINES)) {
                 if (key !== 'default' && leagueLower.includes(key)) {
                     lines.kill = killLine;
@@ -332,6 +352,21 @@ const EsportsAnalyzer = (() => {
                 }
             }
             for (const [key, timeLine] of Object.entries(LOL_TIME_LINES)) {
+                if (key !== 'default' && leagueLower.includes(key)) {
+                    lines.time = timeLine;
+                    break;
+                }
+            }
+        }
+        // v9.0: League-specific kill + time lines for Dota 2
+        if (game === 'dota2' && leagueLower) {
+            for (const [key, killLine] of Object.entries(DOTA_KILL_LINES)) {
+                if (key !== 'default' && leagueLower.includes(key)) {
+                    lines.kill = killLine;
+                    break;
+                }
+            }
+            for (const [key, timeLine] of Object.entries(DOTA_TIME_LINES)) {
                 if (key !== 'default' && leagueLower.includes(key)) {
                     lines.time = timeLine;
                     break;
