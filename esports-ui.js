@@ -27,14 +27,14 @@
         return `${DD_CDN}/${name || champId}.png`;
     }
 
-    // ===== PRO SVG ICONS (LPL-inspired) =====
+    // ===== PRO ICONS (LoLQQ / LPL Broadcast Style — Filled & Colorful) =====
     const ICON = {
-        kills: `<svg class="es-stat-svg kills" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 3.5L12 2L9.5 3.5L12 12L14.5 3.5Z"/><path d="M12 12L5 21H9L12 16L15 21H19L12 12Z"/></svg>`,
-        tower: `<svg class="es-stat-svg tower" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V10L12 3L20 10V21"/><path d="M9 21V14H15V21"/><path d="M12 7V10"/><circle cx="12" cy="7" r="1.5"/></svg>`,
-        dragon: `<svg class="es-stat-svg dragon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3C8 5 4 8 3 13C5 11 7 10 9 10C7 13 6 16 7 20C9 17 11 15 13 14C13 16 13 18 15 21C16 18 17 15 17 12C19 13 21 14 22 16C21 10 17 5 12 3Z"/></svg>`,
-        time: `<svg class="es-stat-svg time" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7V12L15 15"/></svg>`,
-        baron: `<svg class="es-stat-svg baron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L8 6L4 5L6 10L3 14L7 15L8 20L12 17L16 20L17 15L21 14L18 10L20 5L16 6L12 2Z"/><circle cx="10" cy="10" r="1"/><circle cx="14" cy="10" r="1"/></svg>`,
-        gold: `<svg class="es-stat-svg gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8V16M9 11H15"/></svg>`,
+        kills: `<svg class="es-stat-svg kills" viewBox="0 0 24 24"><defs><linearGradient id="gkill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff4444"/><stop offset="100%" stop-color="#cc0000"/></linearGradient></defs><path d="M7.5 2L12 8L16.5 2L15 9L20 6L14 12L20 18L15 15L16.5 22L12 16L7.5 22L9 15L4 18L10 12L4 6L9 9Z" fill="url(#gkill)"/></svg>`,
+        tower: `<svg class="es-stat-svg tower" viewBox="0 0 24 24"><defs><linearGradient id="gtwr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8ecae6"/><stop offset="100%" stop-color="#457b9d"/></linearGradient></defs><path d="M6 22H18V20H15V12H17V8L12 3L7 8V12H9V20H6V22Z" fill="url(#gtwr)"/><rect x="10" y="8" width="4" height="3" rx="0.5" fill="#ffd60a" opacity="0.9"/><rect x="5" y="8" width="3" height="2" rx="0.3" fill="url(#gtwr)"/><rect x="16" y="8" width="3" height="2" rx="0.3" fill="url(#gtwr)"/></svg>`,
+        dragon: `<svg class="es-stat-svg dragon" viewBox="0 0 24 24"><defs><linearGradient id="gdrg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ff6b35"/><stop offset="50%" stop-color="#e63946"/><stop offset="100%" stop-color="#9d0208"/></linearGradient></defs><path d="M12 2C10 3 8 4 7 6L4 5C4.5 7 5 8 6 9L3 11C4 12 5.5 12.5 7 12.5C6 14 5.5 16 6 19L8 17C8.5 19 9.5 20.5 11 22C11 19 11.5 17 12.5 15C13.5 17 14 19 14 22C15.5 20.5 16.5 19 17 17L19 19C19.5 16 19 14 18 12.5C19.5 12.5 21 12 22 11L19 9C20 8 20.5 7 21 5L18 6C17 4 15 3 12 2Z" fill="url(#gdrg)"/><circle cx="9.5" cy="8" r="1" fill="#ffd60a"/><circle cx="14.5" cy="8" r="1" fill="#ffd60a"/></svg>`,
+        time: `<svg class="es-stat-svg time" viewBox="0 0 24 24"><defs><linearGradient id="gtm" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2563eb"/></linearGradient></defs><circle cx="12" cy="12" r="10" fill="url(#gtm)" opacity="0.15"/><circle cx="12" cy="12" r="9" fill="none" stroke="url(#gtm)" stroke-width="2"/><path d="M12 6V12L16 14" stroke="url(#gtm)" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="12" cy="12" r="1.5" fill="url(#gtm)"/></svg>`,
+        baron: `<svg class="es-stat-svg baron" viewBox="0 0 24 24"><defs><linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c77dff"/><stop offset="100%" stop-color="#7b2cbf"/></linearGradient></defs><path d="M12 1L9 5L5 3.5L7 8.5L3 12L7 14L6 19.5L10 16.5L12 20L14 16.5L18 19.5L17 14L21 12L17 8.5L19 3.5L15 5L12 1Z" fill="url(#gbar)"/><circle cx="9.5" cy="9.5" r="1.2" fill="#ffd60a"/><circle cx="14.5" cy="9.5" r="1.2" fill="#ffd60a"/><path d="M9 13C9 13 10.5 15 12 15C13.5 15 15 13 15 13" stroke="#ffd60a" stroke-width="1" fill="none" stroke-linecap="round"/></svg>`,
+        gold: `<svg class="es-stat-svg gold" viewBox="0 0 24 24"><defs><linearGradient id="ggld" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffd60a"/><stop offset="100%" stop-color="#e6a800"/></linearGradient></defs><circle cx="12" cy="12" r="9" fill="url(#ggld)"/><circle cx="12" cy="12" r="7" fill="none" stroke="#b8860b" stroke-width="0.8" opacity="0.4"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="800" fill="#7c5e00" font-family="Arial">$</text></svg>`,
     };
 
     function statIcon(type, value, label) {
@@ -820,16 +820,22 @@
                         ${g.killsA != null ? `<span class="es-gd-val">${g.killsA}</span>` : ''}
                         ${g.towersA != null ? `<span class="es-gd-val">${g.towersA}</span>` : ''}
                         ${g.dragonsA != null ? `<span class="es-gd-val">${g.dragonsA}</span>` : ''}
+                        ${g.baronsA != null ? `<span class="es-gd-val">${g.baronsA}</span>` : ''}
+                        ${g.goldA != null ? `<span class="es-gd-val">${(g.goldA / 1000).toFixed(1)}k</span>` : ''}
                     </div>
                     <div class="es-gd-icons">
-                        ${g.kills != null ? statIcon('kills', g.kills) : ''}
-                        ${g.towers != null ? statIcon('tower', g.towers) : ''}
-                        ${g.dragons != null ? statIcon('dragon', g.dragons) : ''}
+                        ${g.kills != null || g.killsA != null ? statIcon('kills', g.kills ?? '') : ''}
+                        ${g.towers != null || g.towersA != null ? statIcon('tower', g.towers ?? '') : ''}
+                        ${g.dragons != null || g.dragonsA != null ? statIcon('dragon', g.dragons ?? '') : ''}
+                        ${g.baronsA != null || g.barons != null ? statIcon('baron', g.barons ?? '') : ''}
+                        ${g.goldA != null ? statIcon('gold', '') : ''}
                     </div>
                     <div class="es-gd-side es-gd-right">
                         ${g.killsB != null ? `<span class="es-gd-val">${g.killsB}</span>` : ''}
                         ${g.towersB != null ? `<span class="es-gd-val">${g.towersB}</span>` : ''}
                         ${g.dragonsB != null ? `<span class="es-gd-val">${g.dragonsB}</span>` : ''}
+                        ${g.baronsB != null ? `<span class="es-gd-val">${g.baronsB}</span>` : ''}
+                        ${g.goldB != null ? `<span class="es-gd-val">${(g.goldB / 1000).toFixed(1)}k</span>` : ''}
                     </div>
                 </div>
                 ${g.duration != null ? `<div class="es-gd-duration">${statIcon('time', g.duration + 'p', 'Thời gian')}</div>` : ''}
@@ -849,8 +855,10 @@
                 <div class="es-gd-icons">
                     ${statIcon('kills', kills)}
                     ${statIcon('tower', towers)}
-                    ${statIcon('time', dur + 'p')}
                     ${isLol ? statIcon('dragon', 2 + Math.floor(rng() * 3)) : ''}
+                    ${isLol ? statIcon('baron', Math.floor(rng() * 2)) : ''}
+                    ${statIcon('gold', Math.floor(40 + rng() * 30) + 'k')}
+                    ${statIcon('time', dur + 'p')}
                 </div>
             </div>
         </div>`;

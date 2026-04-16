@@ -2319,36 +2319,15 @@ body {
     }
 }
 
-/* ===== PRO SVG STAT ICONS (LPL-inspired) ===== */
+/* ===== PRO FILLED STAT ICONS (LoLQQ / LPL Style) ===== */
 .es-stat-svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
-.es-stat-svg.kills {
-    color: #f59e0b;
-}
-
-.es-stat-svg.tower {
-    color: #22c55e;
-}
-
-.es-stat-svg.dragon {
-    color: #ef4444;
-}
-
-.es-stat-svg.time {
-    color: #60a5fa;
-}
-
-.es-stat-svg.baron {
-    color: #a855f7;
-}
-
-.es-stat-svg.gold {
-    color: #fbbf24;
-}
+/* Individual icon colors are now gradient-filled via inline SVG defs */
 
 .es-pro-stat {
     display: inline-flex;
@@ -2386,8 +2365,8 @@ body {
 }
 
 .es-pro-stats-inline .es-stat-svg {
-    width: 13px;
-    height: 13px;
+    width: 15px;
+    height: 15px;
 }
 
 /* ===== CHAMPION PORTRAITS ===== */
@@ -2535,8 +2514,8 @@ body {
 }
 
 .es-gd-icons .es-stat-svg {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
 }
 
 .es-gd-icons .es-pro-stat strong {
