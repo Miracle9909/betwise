@@ -94,19 +94,125 @@ Tất cả → Leaguepedia Cargo (khi Cloudflare cho qua)
 
 ---
 
-## 5. Series Strategy Quick Ref
+## 5. 🧠 Bo3 DECISION ENGINE (Rule-Based)
 
-### Bo2 (Dota2 League)
-- G1: 60% bankroll series → G2: adjust ±50% theo result
+> **Nguyên tắc:** Không đoán mò. Sau mỗi game → đọc 5 biến số → quyết định kèo game tiếp.
 
-### Bo3 (LoL LCK/LPL)
-- G1 (30%) → Win: G2 (40%) → Win: DONE / Loss: G3 (30%)
-- G1 (30%) → Loss: G2 (20-30%) → Win: G3 (30%) / Loss: **STOP**
+### 5 Biến Số Quyết Định (đọc sau mỗi game)
 
-### Bo5 (Playoffs)
-- G1-G2 (20% each) → scout phase
-- 2-0: push 25% G3 / 1-1: 20% G3 / 0-2: STOP hoặc 10% underdog
-- G5 Silver Scrapes: 25%, TÀI kills + time + Dragon Soul YES
+| # | Biến | Cách đọc | Ảnh hưởng |
+|---|------|----------|-----------|
+| 1 | **Kill Gap** | Total kills vs line (VD: 22 kills vs line 27.5 = sai 5.5) | Meta trận bloody hay clean |
+| 2 | **Tempo** | Duration vs line (VD: 28m vs line 33m = nhanh 5m) | Ai control nhịp game |
+| 3 | **Draft Adapt** | Đội thua có thay đổi style draft? (early→late / late→early) | Hướng kills+time thay đổi |
+| 4 | **Side Pick** | Đội thua được chọn bên G2 (Blue WR ~52% LoL, Radiant ~53% Dota) | Nhẹ advantage cho loser |
+| 5 | **Momentum** | G1 là stomp (>10 kill diff) hay sát nút (<5 kill diff)? | Tâm lý + xu hướng G2 |
+
+---
+
+### RULE TABLE: LoL Bo3
+
+#### Sau Game 1 → Chọn kèo Game 2
+
+| Kịch bản G1 | Kill | Time | Tower | Dragon | Size | Lý do |
+|-------------|------|------|-------|--------|------|-------|
+| **FAV thắng STOMP** (kill diff>10, <25m) | UNDER ↓ | UNDER ↓ | OVER ↑ | UNDER | 1.5u | Fav dominant, G2 close nhanh hơn |
+| **FAV thắng SÁT NÚT** (<5 kill diff, >30m) | GIỮ G1 | GIỮ G1 | GIỮ G1 | GIỮ G1 | 1u | Meta cân, giữ nguyên logic |
+| **UNDERDOG thắng** (bất ngờ) | OVER ↑ | UNDER ↓ | OVER ↑ | OVER ↑ | 1.5u | Fav sẽ aggressive G2 để comeback → nhiều fight, nhanh |
+| **G1 kills > line nhiều** (VD: 35 vs 27.5) | OVER ↑ | UNDER ↓ | — | OVER ↑ | 1u | Meta trận này bloodbath, giữ OVER |
+| **G1 kills < line nhiều** (VD: 18 vs 27.5) | UNDER ↓ | OVER ↑ | UNDER ↓ | UNDER | 1u | Teams chơi safe/objective, giữ UNDER |
+| **G1 time > line nhiều** (VD: 40m vs 33m) | OVER ↑ | OVER ↑ | OVER ↑ | OVER ↑ | 1u | Scaling meta, G2 cũng likely dài |
+| **G1 time < line nhiều** (VD: 22m vs 33m) | UNDER ↓ | UNDER ↓ | — | UNDER | 1u | Snowball meta, G2 cũng likely nhanh |
+
+#### Sau Game 2 → Chọn kèo Game 3 (Decisive)
+
+| Kịch bản | Kill | Time | Dragon | Size | Lý do |
+|----------|------|------|--------|------|-------|
+| **1-1, cả 2 game đều bloody** | OVER ↑↑ | OVER ↑ | OVER ↑ | 1.5u | Decisive game = tất tay → nhiều fight, dài |
+| **1-1, cả 2 game đều clean** | UNDER ↓ | UNDER ↓ | UNDER | 1u | Teams disciplined, G3 cũng controlled |
+| **1-1, G1≠G2 (mixed)** | Trung bình G1+G2 | Trung bình | — | 0.75u | Không rõ trend → giảm size |
+| **Đội thua G1 thắng G2** (comeback) | OVER ↑ | OVER ↑ | OVER ↑ | 1.5u | Momentum swing → G3 intense, dài |
+| **Đội thua THAY DRAFT khác hẳn G2** | ĐỔI hướng | ĐỔI hướng | — | 0.75u | Meta game thay đổi → cẩn thận |
+
+#### Quy tắc đặc biệt LoL
+
+| Rule | Điều kiện | Action |
+|------|-----------|--------|
+| **Dragon Soul Rule** | G1 có đội lấy 4+ dragons | G2: Dragon UNDER (đội kia sẽ contest sớm hơn) |
+| **Baron Throw Rule** | G1 bị throw tại Baron | G2: Time OVER (teams cẩn thận hơn quanh Baron) |
+| **Draft Squeeze** | Đội thua bị ban 3+ comfort picks | G2: Time OVER (đội đó chơi unfamiliar = chậm hơn) |
+| **Side Advantage** | Đội thua chọn Blue side G2 | Kill UNDER nhẹ (Blue side thường control hơn) |
+| **Roster Sub** | Đội thay player giữa series | SKIP game đó (không đủ data) |
+
+---
+
+### RULE TABLE: Dota 2 Bo3
+
+#### Sau Game 1 → Chọn kèo Game 2
+
+| Kịch bản G1 | Kill | Time | Tower | Size | Lý do |
+|-------------|------|------|-------|------|-------|
+| **FAV thắng, G1 kills > 60** | OVER ↑ | UNDER ↓ | OVER ↑ | 0.75u | Dota bloodbath meta, giữ |
+| **FAV thắng, G1 kills < 40** | UNDER ↓ | UNDER ↓ | UNDER | 0.5u | Dominant clean game |
+| **UNDERDOG thắng** | OVER ↑↑ | UNDER ↓ | OVER ↑ | 0.75u | Fav all-in revenge G2 |
+| **G1 > 50m** | OVER ↑ | OVER ↑ | OVER ↑ | 0.5u | Late game meta → G2 cũng likely dài |
+| **G1 < 30m** | UNDER ↓ | UNDER ↓ | — | 0.75u | Stomp meta → G2 cũng likely nhanh |
+
+#### Quy tắc đặc biệt Dota 2
+
+| Rule | Điều kiện | Action |
+|------|-----------|--------|
+| **Radiant/Dire** | Đội thua chọn Radiant G2 | Kill UNDER nhẹ (Radiant advantage ~53%) |
+| **Buyback Game** | G1 có >3 buybacks cuối game | G2: Kill OVER (teams fight risky hơn) |
+| **Mega Creeps** | G1 phải đánh đến Mega | G2: Time OVER (teams respect hơn) |
+| **Cheese Draft** | Đội thắng G1 bằng strat cheese (Brood/Huskar/Meepo) | G2: team kia sẽ ban → G2 plays different |
+
+---
+
+### Bo5 DECISION ENGINE
+
+#### Phase 1: G1-G2 (Trinh sát, 0.5u mỗi game)
+```
+Mục tiêu: Thu thập data. Kèo cơ sở theo league line.
+```
+
+#### Phase 2: Quyết định theo score
+
+| Score | G3 Action | Kill | Time | Size |
+|-------|-----------|------|------|------|
+| **2-0** | Push dominant | OVER ↑ | UNDER ↓ | 0.75u |
+| | *Lý do: Đội thua desperate = fight nhiều, đội thắng close nhanh* |
+| **1-1** | Pivotal game | Trung bình G1+G2 | GIỮ | 0.5u |
+| | *Lý do: Cân bằng, không rõ ai mạnh hơn → safe* |
+| **0-2** | **STOP** hoặc 0.25u | — | — | 0.25u max |
+
+#### Phase 3: Deep series (G4-G5)
+
+| Score | Action | Kill | Time | Size |
+|-------|--------|------|------|------|
+| **3-0** | DONE 🎉 | — | — | — |
+| **2-1** → G4 | Advantage team push | UNDER ↓ | UNDER ↓ | 0.75u |
+| **1-2** → G4 | Conservative | OVER ↑ | OVER ↑ | 0.5u |
+| **2-2** → G5 🎶 | ALL-IN game | OVER ↑↑ | OVER ↑↑ | 0.75u |
+| | *Lý do: Elimination = tất tay, nhiều fight, dài, objectives contested* |
+
+---
+
+### 📊 Tracking & Learning Loop
+
+> **QUAN TRỌNG:** Sau mỗi ngày, cập nhật bảng này để calibrate rules.
+
+| Ngày | Kịch bản | Rule áp dụng | Kèo chọn | Kết quả | Đúng/Sai | Ghi chú |
+|------|----------|-------------|-----------|---------|----------|---------|
+| 17/04 | *Chưa có data* | — | — | — | — | Day 1 |
+
+**Quy trình improve:**
+1. Mỗi cuối ngày → ghi lại rule nào đúng/sai
+2. Sau 7 ngày → đếm WR% từng rule
+3. Rule WR < 50% → **ĐẢO NGƯỢC** hoặc **LOẠI BỎ**
+4. Rule WR > 70% → **TĂNG SIZE** cho rule đó
+5. Phát hiện pattern mới → **THÊM RULE mới**
+6. Mục tiêu: 60% → 70% → 80% → tiệm cận 100%
 
 ---
 
