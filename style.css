@@ -2635,3 +2635,474 @@ body {
         font-size: 11px;
     }
 }
+
+/* ====================================================================
+   HAWK.LIVE STYLE — DOTA 2 MATCH DETAIL
+   Professional live score UI with dark scoreboard
+   ==================================================================== */
+
+/* --- Hawk Scoreboard Container --- */
+.es-hawk-board {
+    background: linear-gradient(135deg, #0f1923 0%, #1a2332 50%, #0d1b2a 100%);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.es-hawk-board::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #22d3ee, #818cf8, #f472b6);
+    opacity: 0.7;
+}
+
+/* Live indicator pulse */
+.es-hawk-live-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 12px;
+    margin-bottom: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #ef4444;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.es-hawk-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: hawkPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes hawkPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+    }
+
+    50% {
+        opacity: 0.6;
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+}
+
+/* --- Kill Score (Centered Big Numbers) --- */
+.es-hawk-kills {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 8px 0 12px;
+}
+
+.es-hawk-kill-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.es-hawk-kill-logo {
+    font-size: 28px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.es-hawk-kill-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    max-width: 120px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.es-hawk-kill-num {
+    font-size: 48px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.es-hawk-kill-num.radiant {
+    color: #4ade80;
+}
+
+.es-hawk-kill-num.dire {
+    color: #f87171;
+}
+
+.es-hawk-kill-sep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.es-hawk-kill-vs {
+    font-size: 14px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 2px;
+}
+
+.es-hawk-timer {
+    font-size: 18px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.es-hawk-timer .es-stat-svg {
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* --- Hawk Stats Row (Towers / Rosh / Gold) --- */
+.es-hawk-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 12px 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.es-hawk-stat-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.2s;
+}
+
+.es-hawk-stat-row:last-child {
+    border-bottom: none;
+}
+
+.es-hawk-stat-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.es-hawk-stat-val {
+    font-size: 18px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.95);
+    font-variant-numeric: tabular-nums;
+}
+
+.es-hawk-stat-val.left {
+    text-align: right;
+    padding-right: 12px;
+}
+
+.es-hawk-stat-val.right {
+    text-align: left;
+    padding-left: 12px;
+}
+
+.es-hawk-stat-val.lead {
+    color: #fbbf24;
+}
+
+.es-hawk-stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 80px;
+}
+
+.es-hawk-stat-icon .es-stat-svg {
+    width: 20px;
+    height: 20px;
+}
+
+.es-hawk-stat-icon span {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- Gold Advantage Bar --- */
+.es-hawk-gold-bar {
+    margin: 12px 0;
+    padding: 0 4px;
+}
+
+.es-hawk-gold-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.es-hawk-gold-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+}
+
+.es-hawk-gold-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+    position: absolute;
+    top: 0;
+}
+
+.es-hawk-gold-fill.radiant {
+    left: 0;
+    background: linear-gradient(90deg, #4ade80, #22c55e);
+}
+
+.es-hawk-gold-fill.dire {
+    right: 0;
+    background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.es-hawk-gold-diff {
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.es-hawk-gold-diff.radiant {
+    color: #4ade80;
+}
+
+.es-hawk-gold-diff.dire {
+    color: #f87171;
+}
+
+/* --- Net Worth Graph (Canvas) --- */
+.es-hawk-nw-wrap {
+    margin: 12px 0;
+    padding: 0 4px;
+}
+
+.es-hawk-nw-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.es-hawk-nw-canvas {
+    width: 100%;
+    height: 120px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* --- Tower Minimap (SVG) --- */
+.es-hawk-minimap-wrap {
+    margin: 12px 0;
+    padding: 0 4px;
+}
+
+.es-hawk-minimap-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.es-hawk-minimap {
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Tower warning flash — when tower is about to fall */
+@keyframes towerFlash {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.2;
+    }
+}
+
+.es-tower-critical {
+    animation: towerFlash 0.8s ease-in-out infinite;
+}
+
+.es-tower-destroyed {
+    opacity: 0.15;
+}
+
+/* --- Hawk Hero Picks (Dota 2 Style) --- */
+.es-hawk-heroes {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    margin: 8px 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.es-hawk-hero-side {
+    display: flex;
+    gap: 3px;
+    flex: 1;
+}
+
+.es-hawk-hero-side.left {
+    justify-content: flex-end;
+}
+
+.es-hawk-hero-side.right {
+    justify-content: flex-start;
+}
+
+.es-hawk-hero-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.es-hawk-hero-img:hover {
+    transform: scale(1.2);
+    border-color: #fbbf24;
+    z-index: 2;
+}
+
+.es-hawk-hero-vs {
+    font-size: 10px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.25);
+    align-self: center;
+    padding: 0 4px;
+}
+
+/* --- Hawk Winner Badge --- */
+.es-hawk-winner-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 14px;
+    margin: 8px auto;
+    width: fit-content;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.05));
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+/* --- Hawk Game Header --- */
+.es-hawk-game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.es-hawk-game-num {
+    font-size: 12px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+/* --- Roshan icon addition --- */
+.es-stat-svg.roshan {
+    filter: drop-shadow(0 1px 3px rgba(200, 50, 80, 0.4));
+}
+
+/* ===== HAWK MOBILE RESPONSIVE ===== */
+@media (max-width: 500px) {
+    .es-hawk-board {
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .es-hawk-kill-num {
+        font-size: 36px;
+    }
+
+    .es-hawk-kill-logo {
+        font-size: 22px;
+    }
+
+    .es-hawk-kill-name {
+        font-size: 9px;
+        max-width: 80px;
+    }
+
+    .es-hawk-timer {
+        font-size: 14px;
+    }
+
+    .es-hawk-stat-val {
+        font-size: 15px;
+    }
+
+    .es-hawk-hero-img {
+        width: 28px;
+        height: 28px;
+    }
+
+    .es-hawk-nw-canvas {
+        height: 90px;
+    }
+
+    .es-hawk-minimap {
+        max-width: 220px;
+    }
+}
